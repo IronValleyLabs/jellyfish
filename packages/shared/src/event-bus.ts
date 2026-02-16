@@ -67,4 +67,28 @@ export class EventBus {
     }
     this.subscriptions.get(name)!.push(handler);
   }
+
+  private subscriptionReady: Map<EventName, Promise<void>> = new Map();
+
+  /** Subscribe and return a Promise that resolves when Redis has confirmed the subscription. Use this before publishing so the handler is guaranteed to receive events. */
+  subscribeAndWait(name: EventName, handler: EventHandler): Promise<void> {
+    if (!this.subscriptions.has(name)) {
+      this.subscriptions.set(name, []);
+      this.subscriptionReady.set(
+        name,
+        new Promise((resolve, reject) => {
+          this.subscriber.subscribe(name, (err) => {
+            if (err) {
+              console.error(`[EventBus] Subscribe error (${name}):`, err.message);
+              reject(err);
+            } else {
+              resolve();
+            }
+          });
+        })
+      );
+    }
+    this.subscriptions.get(name)!.push(handler);
+    return this.subscriptionReady.get(name)!;
+  }
 }

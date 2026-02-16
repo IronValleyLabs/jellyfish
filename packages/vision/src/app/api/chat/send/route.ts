@@ -11,8 +11,6 @@ if (rootEnv) dotenv.config({ path: rootEnv })
 const WEB_PREFIX = 'web_'
 const POLL_MS = 200
 const MAX_WAIT_MS = 55_000
-/** Give Redis time to register our subscriptions before we trigger the pipeline */
-const SUBSCRIBE_SETTLE_MS = 500
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -52,9 +50,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  eventBus.subscribe('action.completed', onCompleted)
-  eventBus.subscribe('action.failed', onFailed)
-  await new Promise((r) => setTimeout(r, SUBSCRIBE_SETTLE_MS))
+  try {
+    await Promise.all([
+      eventBus.subscribeAndWait('action.completed', onCompleted),
+      eventBus.subscribeAndWait('action.failed', onFailed),
+    ])
+  } catch (err) {
+    console.error('[Chat/send] Redis subscribe failed:', err)
+    return Response.json(
+      { error: 'Could not connect to Redis. Is it running? Set REDIS_HOST in .env and run ./start.sh.' },
+      { status: 503 }
+    )
+  }
 
   console.log('[Chat/send] Publishing message.received', conversationId, 'text length:', text.length)
   await eventBus.publish('message.received', {
