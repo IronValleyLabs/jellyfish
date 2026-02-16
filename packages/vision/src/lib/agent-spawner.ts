@@ -2,6 +2,7 @@ import { spawn } from 'child_process'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { getDefaultPromptForTemplate } from './default-prompts'
+import { IMPLEMENTED_SKILLS, IMPLEMENTED_IDS } from './agent-skills'
 
 const VISION_CWD = process.cwd()
 const ROOT = path.resolve(VISION_CWD, '..', '..')
@@ -31,6 +32,8 @@ export interface TeamMember {
   goals?: string
   accessNotes?: string
   kpis?: string
+  specMarkdown?: string
+  skills?: string[]
   status: string
   addedAt: number
   nanoCount: number
@@ -90,8 +93,15 @@ export async function getSystemPromptForMember(
   if (member.accessNotes?.trim()) {
     withRole.push(`What access you have (use this when answering): ${member.accessNotes.trim()}`)
   }
+  if (member.specMarkdown?.trim()) {
+    withRole.push(`Agent spec (follow these instructions):\n${member.specMarkdown.trim()}`)
+  }
+  const allowedIds = member.skills?.length ? member.skills.filter((id) => IMPLEMENTED_IDS.includes(id)) : IMPLEMENTED_IDS
+  const toolLabels = allowedIds.map((id) => IMPLEMENTED_SKILLS.find((s) => s.id === id)?.label ?? id).join(', ')
   withRole.push(
-    `Your available tools: chat, safe bash, web search (DuckDuckGo), draft (copies/captions/emails), generate_image (Nano Banana Pro from description), instagram_post (post image+caption if INSTAGRAM_* set), metricool_schedule (schedule post if METRICOOL_* set). Use them to act autonomously; report results and findings to your human.`
+    member.skills?.length
+      ? `You may only use these tools: ${toolLabels}. Use them to act autonomously; report results and findings to your human.`
+      : `Your available tools: ${toolLabels}. Use them to act autonomously; report results and findings to your human.`
   )
   let prompt = withRole.join('\n\n')
   try {

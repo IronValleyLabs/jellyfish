@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { MINI_JELLY_TEMPLATES } from '@/lib/mini-jelly-templates'
+import { parseSkills } from '@/lib/agent-skills'
 import { spawnMiniJelly, killMiniJelly } from '@/lib/agent-spawner'
 
 const TEAM_FILE = path.join(process.cwd(), 'data', 'team.json')
@@ -20,6 +21,10 @@ export interface TeamMember {
   accessNotes?: string
   /** KPIs this agent is measured on (e.g. ROAS > 2, response time < 1h). Agent works to achieve them and reports findings to human. */
   kpis?: string
+  /** Agent spec in Markdown (instructions, tone, constraints). */
+  specMarkdown?: string
+  /** Skill IDs this agent can use. Empty = all implemented skills. */
+  skills?: string[]
   status: 'active' | 'paused'
   addedAt: number
   nanoCount: number
@@ -41,6 +46,7 @@ function normalizeMember(m: Record<string, unknown>): TeamMember {
     displayName: typeof base.displayName === 'string' ? base.displayName : base.name,
     aliases: Array.isArray(base.aliases) ? base.aliases.filter((a): a is string => typeof a === 'string') : [],
     assignedChats: Array.isArray(base.assignedChats) ? base.assignedChats.filter((c): c is string => typeof c === 'string') : [],
+    skills: parseSkills(base.skills),
   }
 }
 
@@ -77,13 +83,13 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     )
   }
-  let body: { templateId: string; jobDescription?: string; goals?: string; accessNotes?: string; kpis?: string }
+  let body: { templateId: string; jobDescription?: string; goals?: string; accessNotes?: string; kpis?: string; specMarkdown?: string; skills?: string[] }
   try {
     body = await request.json()
   } catch {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
-  const { templateId, jobDescription, goals, accessNotes, kpis } = body
+  const { templateId, jobDescription, goals, accessNotes, kpis, specMarkdown, skills } = body
   if (!templateId || typeof templateId !== 'string') {
     return Response.json({ error: 'templateId is required' }, { status: 400 })
   }
@@ -101,6 +107,8 @@ export async function POST(request: NextRequest) {
     goals: typeof goals === 'string' ? goals : undefined,
     accessNotes: typeof accessNotes === 'string' ? accessNotes : undefined,
     kpis: typeof kpis === 'string' ? kpis : undefined,
+    specMarkdown: typeof specMarkdown === 'string' ? specMarkdown : undefined,
+    skills: parseSkills(skills),
     status: 'active',
     addedAt: Date.now(),
     nanoCount: 0,
@@ -131,7 +139,7 @@ export async function PATCH(request: NextRequest) {
   if (!id) {
     return Response.json({ error: 'id query param required' }, { status: 400 })
   }
-  let body: { jobDescription?: string; goals?: string; accessNotes?: string; kpis?: string; status?: 'active' | 'paused'; displayName?: string; aliases?: string[] }
+  let body: { jobDescription?: string; goals?: string; accessNotes?: string; kpis?: string; specMarkdown?: string; skills?: string[]; status?: 'active' | 'paused'; displayName?: string; aliases?: string[] }
   try {
     body = await request.json()
   } catch {
@@ -146,6 +154,8 @@ export async function PATCH(request: NextRequest) {
   if (body.goals !== undefined) team[index].goals = typeof body.goals === 'string' ? body.goals : undefined
   if (body.accessNotes !== undefined) team[index].accessNotes = typeof body.accessNotes === 'string' ? body.accessNotes : undefined
   if (body.kpis !== undefined) team[index].kpis = typeof body.kpis === 'string' ? body.kpis : undefined
+  if (body.specMarkdown !== undefined) team[index].specMarkdown = typeof body.specMarkdown === 'string' ? body.specMarkdown : undefined
+  if (body.skills !== undefined) team[index].skills = parseSkills(body.skills)
   if (body.displayName !== undefined && typeof body.displayName === 'string') team[index].displayName = body.displayName
   if (body.aliases !== undefined && Array.isArray(body.aliases)) team[index].aliases = body.aliases.filter((a): a is string => typeof a === 'string')
   if (body.status !== undefined) {

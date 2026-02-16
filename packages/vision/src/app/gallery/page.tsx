@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { getMiniJellysByCategory, MiniJellyTemplate } from '@/lib/mini-jelly-templates'
+import { IMPLEMENTED_SKILLS } from '@/lib/agent-skills'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, X } from 'lucide-react'
@@ -17,6 +18,8 @@ export default function Gallery() {
     goals: string
     kpis: string
     accessNotes: string
+    specMarkdown: string
+    skills: string[]
   } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,7 +31,7 @@ export default function Gallery() {
       (template.requiredAccess ?? []).length > 0
         ? `Suggested: ${template.requiredAccess.join(', ')}. Describe how this agent can use them (e.g. login email, where credentials are). Do not paste real passwords.`
         : ''
-    setModal({ template, jobDescription: '', goals: defaultGoals, kpis: defaultKpis, accessNotes: defaultAccess })
+    setModal({ template, jobDescription: '', goals: defaultGoals, kpis: defaultKpis, accessNotes: defaultAccess, specMarkdown: '', skills: [] })
     setError(null)
   }
 
@@ -53,6 +56,8 @@ export default function Gallery() {
           goals: modal.goals.trim() || undefined,
           kpis: modal.kpis.trim() || undefined,
           accessNotes: modal.accessNotes.trim() || undefined,
+          specMarkdown: modal.specMarkdown.trim() || undefined,
+          skills: modal.skills.length ? modal.skills : undefined,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -187,6 +192,43 @@ export default function Gallery() {
               className="w-full px-4 py-3 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm focus:outline-none focus:border-ocean-500 resize-y mb-4"
               placeholder="e.g. No API yet; only web search. Or: QuickBooks login in 1Password under 'Finance'."
             />
+            <p className="text-sm text-ocean-400 mb-2">
+              <strong>Agent spec (Markdown)</strong> — Optional. Paste instructions, tone, constraints.
+            </p>
+            <textarea
+              value={modal.specMarkdown}
+              onChange={(e) =>
+                setModal((m) => (m ? { ...m, specMarkdown: e.target.value } : null))
+              }
+              rows={3}
+              className="w-full px-4 py-3 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm focus:outline-none focus:border-ocean-500 resize-y mb-4"
+              placeholder="Optional Markdown spec..."
+            />
+            <p className="text-sm text-ocean-400 mb-2">
+              <strong>Skills</strong> — Tools this agent can use. Leave all unchecked for all skills.
+            </p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {IMPLEMENTED_SKILLS.map((s) => (
+                <label key={s.id} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={modal.skills.includes(s.id)}
+                    onChange={(e) =>
+                      setModal((m) =>
+                        m
+                          ? {
+                              ...m,
+                              skills: e.target.checked ? [...m.skills, s.id] : m.skills.filter((id) => id !== s.id),
+                            }
+                          : null
+                      )
+                    }
+                    className="rounded border-ocean-600 bg-ocean-800 text-ocean-400 focus:ring-ocean-500"
+                  />
+                  <span className="text-sm text-ocean-300">{s.icon} {s.label}</span>
+                </label>
+              ))}
+            </div>
             {error && (
               <p className="text-sm text-red-400 mb-4 rounded-lg bg-red-500/10 px-3 py-2">
                 {error}

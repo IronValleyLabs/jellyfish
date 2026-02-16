@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
-import { Plus, Activity, Settings, TrendingUp, FileText, MessageSquare } from 'lucide-react'
+import { Plus, Activity, Settings, TrendingUp, FileText, MessageSquare, RotateCw, X, Copy } from 'lucide-react'
 
 interface TeamMember {
   id: string
@@ -56,7 +56,7 @@ const DEFAULT_METRICS: Metrics = {
 }
 
 const MAX_TEAM_SIZE = 20
-const POLL_INTERVAL_MS = 10000
+const POLL_INTERVAL_MS = 30000
 
 function formatRelative(ts: number): string {
   if (!ts) return ''
@@ -74,6 +74,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [redisWarning, setRedisWarning] = useState(false)
+  const [showRestartModal, setShowRestartModal] = useState(false)
+  const [restartCopied, setRestartCopied] = useState(false)
 
   const loadData = useCallback(async () => {
     const [teamRes, metricsRes, statusRes] = await Promise.all([
@@ -151,6 +153,15 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowRestartModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors"
+                title="Restart Jellyfish"
+              >
+                <RotateCw className="w-4 h-4" />
+                Restart
+              </button>
               <Link
                 href="/logs"
                 className="flex items-center gap-2 px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors"
@@ -190,6 +201,58 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
+
+      {showRestartModal && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowRestartModal(false)}
+        >
+          <div
+            className="bg-ocean-900 border border-ocean-700 rounded-xl max-w-md w-full p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-ocean-100 flex items-center gap-2">
+                <RotateCw className="w-5 h-5" />
+                Restart Jellyfish
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowRestartModal(false)}
+                className="p-2 hover:bg-ocean-700/50 rounded-lg text-ocean-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-ocean-300 mb-4">
+              To apply config changes or restart all agents:
+            </p>
+            <ol className="list-decimal list-inside text-sm text-ocean-300 space-y-2 mb-4">
+              <li>In the terminal where Jellyfish is running, press <kbd className="px-1.5 py-0.5 bg-ocean-800 rounded text-ocean-200">Ctrl+C</kbd></li>
+              <li>Run the command below:</li>
+            </ol>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-3 py-2 bg-ocean-800 rounded-lg text-ocean-200 text-sm">./start.sh</code>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText('./start.sh').then(() => {
+                    setRestartCopied(true)
+                    setTimeout(() => setRestartCopied(false), 2000)
+                  })
+                }}
+                className="flex items-center gap-2 px-3 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-lg transition-colors text-sm"
+              >
+                <Copy className="w-4 h-4" />
+                {restartCopied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <p className="text-xs text-ocean-500 mt-4">
+              This restarts Memory, Core, Action, Chat and Vision. Mini Jellys are respawned automatically.
+            </p>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         {redisWarning && (

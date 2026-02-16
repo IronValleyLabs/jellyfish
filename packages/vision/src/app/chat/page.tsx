@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, MessageSquare, User, Bot, RefreshCw } from 'lucide-react'
 
-const POLL_INTERVAL_MS = 5000
+const POLL_INTERVAL_MS = 15000
 
 interface ChatMessage {
   id: number

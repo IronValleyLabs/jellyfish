@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Save, Trash2 } from 'lucide-react'
+import { IMPLEMENTED_SKILLS } from '@/lib/agent-skills'
 
 interface TeamMember {
   id: string
@@ -15,6 +16,8 @@ interface TeamMember {
   goals?: string
   accessNotes?: string
   kpis?: string
+  specMarkdown?: string
+  skills?: string[]
   status: 'active' | 'paused'
   addedAt: number
   nanoCount: number
@@ -33,6 +36,8 @@ export default function MiniJellyConfig() {
   const [goals, setGoals] = useState('')
   const [accessNotes, setAccessNotes] = useState('')
   const [kpis, setKpis] = useState('')
+  const [specMarkdown, setSpecMarkdown] = useState('')
+  const [skills, setSkills] = useState<string[]>([])
   const [status, setStatus] = useState<'active' | 'paused'>('active')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -48,6 +53,8 @@ export default function MiniJellyConfig() {
           setGoals(m.goals ?? '')
           setAccessNotes(m.accessNotes ?? '')
           setKpis(m.kpis ?? '')
+          setSpecMarkdown(m.specMarkdown ?? '')
+          setSkills(m.skills ?? [])
           setStatus(m.status)
         }
       })
@@ -67,6 +74,8 @@ export default function MiniJellyConfig() {
           goals: goals.trim() || undefined,
           accessNotes: accessNotes.trim() || undefined,
           kpis: kpis.trim() || undefined,
+          specMarkdown: specMarkdown.trim() || undefined,
+          skills: skills.length ? skills : undefined,
           status,
         }),
       })
@@ -201,6 +210,44 @@ export default function MiniJellyConfig() {
               className="w-full px-4 py-3 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm focus:outline-none focus:border-ocean-500 resize-y"
               placeholder="e.g. No API yet. Or: QuickBooks login in 1Password 'Finance'."
             />
+          </div>
+
+          <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-ocean-100 mb-2">Agent spec (Markdown)</h2>
+            <p className="text-sm text-ocean-500 mb-4">
+              Optional. Instructions, tone, constraints for this agent.
+            </p>
+            <textarea
+              value={specMarkdown}
+              onChange={(e) => setSpecMarkdown(e.target.value)}
+              rows={4}
+              className="w-full px-4 py-3 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm focus:outline-none focus:border-ocean-500 resize-y"
+              placeholder="Optional Markdown spec..."
+            />
+          </div>
+
+          <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-ocean-100 mb-2">Skills</h2>
+            <p className="text-sm text-ocean-500 mb-4">
+              Tools this agent can use. Leave all unchecked for all skills.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {IMPLEMENTED_SKILLS.map((s) => (
+                <label key={s.id} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={skills.includes(s.id)}
+                    onChange={(e) =>
+                      setSkills((prev) =>
+                        e.target.checked ? [...prev, s.id] : prev.filter((id) => id !== s.id)
+                      )
+                    }
+                    className="rounded border-ocean-600 bg-ocean-800 text-ocean-400 focus:ring-ocean-500"
+                  />
+                  <span className="text-sm text-ocean-300">{s.icon} {s.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6">
