@@ -10,6 +10,7 @@ const DEFAULT_SYSTEM_PROMPT =
 export interface DetectedIntent {
   intent: 'bash' | 'websearch' | 'response';
   params: { command?: string; query?: string; text?: string };
+  usage?: { prompt_tokens: number; completion_tokens: number };
 }
 
 export class AIProcessor {
@@ -46,6 +47,12 @@ export class AIProcessor {
     });
     const raw = completion.choices[0].message.content?.trim() ?? '{}';
     const jsonStr = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+    const usage = completion.usage
+      ? {
+          prompt_tokens: completion.usage.prompt_tokens ?? 0,
+          completion_tokens: completion.usage.completion_tokens ?? 0,
+        }
+      : undefined;
     try {
       const parsed = JSON.parse(jsonStr) as {
         intent?: string;
@@ -62,9 +69,10 @@ export class AIProcessor {
           query: params.query,
           text: params.text,
         },
+        usage,
       };
     } catch {
-      return { intent: 'response', params: {} };
+      return { intent: 'response', params: {}, usage };
     }
   }
 

@@ -60,10 +60,7 @@ async function main() {
     adapter.onMessage(async (msg) => {
       if (RESET_REGEX.test(msg.text.trim())) {
         await router.unassignConversation(msg.conversationId);
-        // Adapter-specific reply: Telegram adapter will need to send the reply.
-        // For now we skip publishing and the adapter doesn't send /reset reply
-        // unless we pass a callback. Keep simple: publish a synthetic action.completed
-        // for /reset so the adapter can send the reply via action.completed subscription.
+        await eventBus.publish('conversation.unassigned', { conversationId: msg.conversationId });
         await eventBus.publish('action.completed', {
           conversationId: msg.conversationId,
           result: {

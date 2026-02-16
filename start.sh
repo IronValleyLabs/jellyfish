@@ -29,12 +29,17 @@ sleep 2
 pnpm --filter @jellyfish/core dev &
 CORE_PID=$!
 sleep 2
+pnpm --filter @jellyfish/action dev &
+ACTION_PID=$!
+sleep 2
 pnpm --filter @jellyfish/chat dev &
 CHAT_PID=$!
 sleep 2
 pnpm --filter @jellyfish/vision dev &
 VISION_PID=$!
 sleep 5
+mkdir -p data
+echo "{\"memory\":$MEMORY_PID,\"core\":$CORE_PID,\"action\":$ACTION_PID,\"chat\":$CHAT_PID,\"vision\":$VISION_PID}" > data/main-processes.json
 echo ""
 echo "🪼 Respawn Mini Jellys (if any)..."
 curl -s -X POST http://localhost:3000/api/team/respawn >/dev/null 2>&1 || true
@@ -42,6 +47,7 @@ echo ""
 echo "✅ Jellyfish está corriendo!"
 echo "   - Memory Agent (PID: $MEMORY_PID)"
 echo "   - Core Agent (PID: $CORE_PID)"
+echo "   - Action Agent (PID: $ACTION_PID)"
 echo "   - Chat Agent (PID: $CHAT_PID)"
 echo "   - Dashboard Vision (PID: $VISION_PID)"
 echo ""

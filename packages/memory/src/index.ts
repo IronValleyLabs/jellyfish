@@ -102,6 +102,14 @@ class MemoryAgent {
         event.correlationId
       );
     });
+    this.eventBus.subscribe('conversation.unassigned', async (event) => {
+      const payload = event.payload as { conversationId?: string };
+      if (payload.conversationId) {
+        const assignments = await readAssignments();
+        delete assignments[payload.conversationId];
+        await writeAssignments(assignments);
+      }
+    });
     this.eventBus.subscribe('action.completed', async (event) => {
       const payload = event.payload as { conversationId?: string; result?: { output?: string } };
       if (payload.result?.output && payload.conversationId) {

@@ -33,6 +33,11 @@ interface AgentStatus {
   uptime: number
 }
 
+interface MainProcessStatus {
+  online: boolean
+  pid: number
+}
+
 interface MemberWithMeta extends TeamMember {
   metrics: Metrics
   agentStatus: AgentStatus | null
@@ -60,6 +65,8 @@ function formatRelative(ts: number): string {
 
 export default function Dashboard() {
   const [teamWithMeta, setTeamWithMeta] = useState<MemberWithMeta[]>([])
+  const [metricsMap, setMetricsMap] = useState<Record<string, Metrics>>({})
+  const [mainProcesses, setMainProcesses] = useState<Record<string, MainProcessStatus>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -72,12 +79,15 @@ export default function Dashboard() {
     if (!teamRes.ok) throw new Error('Failed to load team')
     const team: TeamMember[] = Array.isArray(await teamRes.json()) ? await teamRes.json() : []
     const metrics: Record<string, Metrics> = metricsRes.ok ? await metricsRes.json() : {}
-    const status: Record<string, AgentStatus> = statusRes.ok ? await statusRes.json() : {}
+    const statusRaw: Record<string, AgentStatus | Record<string, MainProcessStatus>> = statusRes.ok ? await statusRes.json() : {}
+    const { _main, ...status } = statusRaw
+    if (_main && typeof _main === 'object') setMainProcesses(_main as Record<string, MainProcessStatus>)
+    setMetricsMap(metrics)
 
     const merged: MemberWithMeta[] = team.map((m) => {
       const agentId = m.id.startsWith('mini-jelly-') ? m.id : `mini-jelly-${m.id}`
       const mMetrics = metrics[agentId] ?? DEFAULT_METRICS
-      const agentStatus = status[m.id] ?? null
+      const agentStatus = (status as Record<string, AgentStatus>)[m.id] ?? null
       return {
         ...m,
         nanoCount: mMetrics.nanoCount,
@@ -104,9 +114,10 @@ export default function Dashboard() {
 
   const team = teamWithMeta
   const activeCount = team.filter((m) => m.status === 'active').length
-  const totalActions = team.reduce((sum, m) => sum + m.actionsToday, 0)
-  const totalNano = team.reduce((sum, m) => sum + m.nanoCount, 0)
-  const totalCost = team.reduce((sum, m) => sum + m.costToday, 0)
+  const coreMetrics = metricsMap['core-agent-1'] ?? DEFAULT_METRICS
+  const totalActions = team.reduce((sum, m) => sum + m.actionsToday, 0) + coreMetrics.actionsToday
+  const totalNano = team.reduce((sum, m) => sum + m.nanoCount, 0) + coreMetrics.nanoCount
+  const totalCost = team.reduce((sum, m) => sum + m.costToday, 0) + coreMetrics.costToday
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-ocean-950 via-ocean-900 to-ocean-800">
@@ -213,6 +224,22 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+
+            {Object.keys(mainProcesses).length > 0 && (
+              <div className="mb-8 flex flex-wrap items-center gap-4 px-2 py-3 bg-ocean-900/30 border border-ocean-700/50 rounded-xl">
+                <span className="text-sm text-ocean-500">System agents</span>
+                {['memory', 'core', 'action', 'chat', 'vision'].map((name) => {
+                  const s = mainProcesses[name]
+                  const online = s?.online ?? false
+                  return (
+                    <span key={name} className="flex items-center gap-1.5 text-sm" title={s ? `PID ${s.pid}` : ''}>
+                      <span className={`w-2 h-2 rounded-full ${online ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
+                      <span className="text-ocean-300 capitalize">{name}</span>
+                    </span>
+                  )
+                })}
+              </div>
+            )}
 
             <div>
               <h2 className="text-xl font-semibold text-ocean-100 mb-4">

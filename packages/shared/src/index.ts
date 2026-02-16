@@ -4,7 +4,8 @@ export type EventName =
   | 'context.loaded'
   | 'intent.detected'
   | 'action.completed'
-  | 'action.failed';
+  | 'action.failed'
+  | 'conversation.unassigned';
 
 export interface EventPayload {
   [key: string]: unknown;

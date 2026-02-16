@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
         'intent.detected',
         'action.completed',
         'action.failed',
+        'conversation.unassigned',
       ]
 
       await subscriber.subscribe(...channels)

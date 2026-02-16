@@ -47,10 +47,18 @@ class CoreAgent {
         `[CoreAgent] Context loaded for ${payload.conversationId} (${payload.history.length} messages)`
       );
       try {
-        const { intent, params } = await this.aiProcessor.detectIntent(
+        const { intent, params, usage: intentUsage } = await this.aiProcessor.detectIntent(
           payload.currentMessage,
           payload.history
         );
+        if (intentUsage) {
+          const intentCost = estimateCost(
+            this.aiProcessor.getModel(),
+            intentUsage.prompt_tokens,
+            intentUsage.completion_tokens
+          );
+          await this.metrics.addCost(this.agentId, intentCost);
+        }
         console.log(`[CoreAgent] Intent: ${intent}`);
 
         if (intent === 'response') {
