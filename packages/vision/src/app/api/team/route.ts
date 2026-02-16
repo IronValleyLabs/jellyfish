@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { MINI_JELLY_TEMPLATES } from '@/lib/mini-jelly-templates'
+import { spawnMiniJelly, killMiniJelly } from '@/lib/agent-spawner'
 
 const TEAM_FILE = path.join(process.cwd(), 'data', 'team.json')
 const MAX_TEAM_SIZE = 20
@@ -19,13 +20,30 @@ export interface TeamMember {
   actionsToday: number
   costToday: number
   lastAction: string
+  /** Display name for mentions (e.g. "MiniGrowth"). Defaults to name. */
+  displayName: string
+  /** Optional aliases for natural routing (e.g. ["Growth", "Crecimiento"]). */
+  aliases?: string[]
+  /** Conversation IDs currently assigned to this agent (e.g. ["telegram:123", "whatsapp:456"]). */
+  assignedChats?: string[]
+}
+
+function normalizeMember(m: Record<string, unknown>): TeamMember {
+  const base = m as unknown as TeamMember
+  return {
+    ...base,
+    displayName: typeof base.displayName === 'string' ? base.displayName : base.name,
+    aliases: Array.isArray(base.aliases) ? base.aliases.filter((a): a is string => typeof a === 'string') : [],
+    assignedChats: Array.isArray(base.assignedChats) ? base.assignedChats.filter((c): c is string => typeof c === 'string') : [],
+  }
 }
 
 async function readTeam(): Promise<TeamMember[]> {
   try {
     await fs.mkdir(path.dirname(TEAM_FILE), { recursive: true })
     const raw = await fs.readFile(TEAM_FILE, 'utf-8')
-    return JSON.parse(raw)
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.map((m: Record<string, unknown>) => normalizeMember(m)) : []
   } catch {
     return []
   }
@@ -80,9 +98,23 @@ export async function POST(request: NextRequest) {
     actionsToday: 0,
     costToday: 0,
     lastAction: 'Never',
+    displayName: template.name,
+    aliases: [],
+    assignedChats: [],
   }
   team.push(member)
   await writeTeam(team)
+  try {
+    await spawnMiniJelly(member, template.description)
+  } catch (err) {
+    console.error('[POST /api/team] spawn failed:', err)
+    team.pop()
+    await writeTeam(team)
+    return Response.json(
+      { error: 'Failed to start agent process' },
+      { status: 500 }
+    )
+  }
   return Response.json(member, { status: 201 })
 }
 
@@ -92,7 +124,7 @@ export async function PATCH(request: NextRequest) {
   if (!id) {
     return Response.json({ error: 'id query param required' }, { status: 400 })
   }
-  let body: { jobDescription?: string; status?: 'active' | 'paused' }
+  let body: { jobDescription?: string; status?: 'active' | 'paused'; displayName?: string; aliases?: string[] }
   try {
     body = await request.json()
   } catch {
@@ -104,7 +136,27 @@ export async function PATCH(request: NextRequest) {
     return Response.json({ error: 'Member not found' }, { status: 404 })
   }
   if (body.jobDescription !== undefined) team[index].jobDescription = body.jobDescription
-  if (body.status !== undefined) team[index].status = body.status
+  if (body.displayName !== undefined && typeof body.displayName === 'string') team[index].displayName = body.displayName
+  if (body.aliases !== undefined && Array.isArray(body.aliases)) team[index].aliases = body.aliases.filter((a): a is string => typeof a === 'string')
+  if (body.status !== undefined) {
+    const prevStatus = team[index].status
+    team[index].status = body.status
+    if (prevStatus === 'active' && body.status === 'paused') {
+      await killMiniJelly(id)
+    } else if (prevStatus === 'paused' && body.status === 'active') {
+      const template = MINI_JELLY_TEMPLATES.find((t) => t.id === team[index].templateId)
+      if (template) {
+        try {
+          await spawnMiniJelly(team[index], template.description)
+        } catch (err) {
+          console.error('[PATCH /api/team] spawn failed:', err)
+          team[index].status = 'paused'
+          await writeTeam(team)
+          return Response.json({ error: 'Failed to start agent process' }, { status: 500 })
+        }
+      }
+    }
+  }
   await writeTeam(team)
   return Response.json(team[index])
 }
@@ -116,10 +168,11 @@ export async function DELETE(request: NextRequest) {
     return Response.json({ error: 'id query param required' }, { status: 400 })
   }
   const team = await readTeam()
-  const filtered = team.filter((m) => m.id !== id)
-  if (filtered.length === team.length) {
+  if (!team.some((m) => m.id === id)) {
     return Response.json({ error: 'Member not found' }, { status: 404 })
   }
+  await killMiniJelly(id)
+  const filtered = team.filter((m) => m.id !== id)
   await writeTeam(filtered)
   return Response.json({ ok: true })
 }

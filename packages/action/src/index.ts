@@ -1,5 +1,5 @@
 import path from 'path';
-import { EventBus } from '@jellyfish/shared';
+import { EventBus, MetricsCollector } from '@jellyfish/shared';
 import { BashExecutor } from './bash-executor';
 import { WebSearcher } from './web-searcher';
 import dotenv from 'dotenv';
@@ -11,24 +11,28 @@ interface IntentPayload {
   intent?: string;
   params?: { command?: string; query?: string; text?: string };
   conversationId?: string;
+  agentId?: string;
 }
 
 class ActionAgent {
   private eventBus: EventBus;
   private bashExecutor: BashExecutor;
   private webSearcher: WebSearcher;
+  private metrics: MetricsCollector;
 
   constructor() {
     console.log('[ActionAgent] Iniciando...');
     this.eventBus = new EventBus('action-agent-1');
     this.bashExecutor = new BashExecutor();
     this.webSearcher = new WebSearcher();
+    this.metrics = new MetricsCollector();
     this.setupSubscriptions();
   }
 
   private setupSubscriptions() {
     this.eventBus.subscribe('intent.detected', async (event) => {
       const payload = event.payload as IntentPayload;
+      const agentId = payload.agentId ?? 'core-agent-1';
       console.log(`[ActionAgent] Intención detectada: ${payload.intent}`);
       let result: { output: string; error?: string } = { output: '' };
       try {
@@ -60,6 +64,9 @@ class ActionAgent {
             event.correlationId
           );
         } else {
+          await this.metrics.incrementActions(agentId);
+          await this.metrics.incrementNanoCount(agentId);
+          await this.metrics.recordAction(agentId, `action_${payload.intent ?? 'unknown'}`);
           await this.eventBus.publish(
             'action.completed',
             {

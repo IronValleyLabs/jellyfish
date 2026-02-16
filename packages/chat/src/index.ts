@@ -1,54 +1,108 @@
 import path from 'path';
-import { Telegraf } from 'telegraf';
-import { EventBus } from '@jellyfish/shared';
+import { EventBus, detectMention, ConversationRouter } from '@jellyfish/shared';
+import { loadTeam } from './load-team';
+import { createTelegramAdapter } from './adapters/telegram-adapter';
+import type { ChatAdapter, IncomingMessage } from './adapters/base-adapter';
 import dotenv from 'dotenv';
+
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config();
-class ChatAgent {
-  private bot: Telegraf;
-  private eventBus: EventBus;
-  constructor() {
-    console.log('[ChatAgent] Iniciando bot de Telegram...');
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    if (!token) {
-      throw new Error('TELEGRAM_BOT_TOKEN no está configurado en .env');
+
+const RESET_REGEX = /^\/reset\s*$/i;
+
+function createMessageHandler(
+  eventBus: EventBus,
+  router: ConversationRouter
+): (msg: IncomingMessage) => void {
+  return async (msg: IncomingMessage) => {
+    const { conversationId, userId, text, platform } = msg;
+
+    if (RESET_REGEX.test(text.trim())) {
+      await router.unassignConversation(conversationId);
+      return;
     }
-    this.bot = new Telegraf(token);
-    this.eventBus = new EventBus('chat-agent-1');
-    this.setupBot();
-    this.setupSubscriptions();
-    this.bot.launch();
-    console.log('[ChatAgent] Bot de Telegram activo');
-    process.once('SIGINT', () => this.bot.stop('SIGINT'));
-    process.once('SIGTERM', () => this.bot.stop('SIGTERM'));
-  }
-  private setupBot() {
-    this.bot.on('text', async (ctx) => {
-      const userId = ctx.from.id.toString();
-      const conversationId = `telegram_${userId}`;
-      const text = ctx.message.text;
-      console.log(`[ChatAgent] Mensaje recibido de ${userId}: "${text}"`);
-      await this.eventBus.publish('message.received', {
-        platform: 'telegram',
-        userId,
-        conversationId,
-        text,
-      });
-    });
-  }
-  private setupSubscriptions() {
-    this.eventBus.subscribe('action.completed', async (event) => {
-      const payload = event.payload as { conversationId?: string; result?: { output?: string } };
-      if (payload.conversationId?.startsWith('telegram_') && payload.result?.output) {
-        const userId = payload.conversationId.replace('telegram_', '');
-        console.log(`[ChatAgent] Enviando respuesta a ${userId}`);
-        try {
-          await this.bot.telegram.sendMessage(userId, payload.result.output);
-        } catch (error: unknown) {
-          console.error('[ChatAgent] Error enviando mensaje:', error);
-        }
+
+    const team = await loadTeam();
+    const mentioned = detectMention(text, team);
+    let targetAgentId: string | null = null;
+
+    if (mentioned) {
+      await router.assignConversation(conversationId, mentioned.id);
+      await router.renewConversation(conversationId);
+      targetAgentId = `mini-jelly-${mentioned.id}`;
+      console.log(`[ChatAgent] Mention: ${mentioned.displayName} -> ${targetAgentId}`);
+    } else {
+      const assigned = await router.getAssignedAgent(conversationId);
+      if (assigned) {
+        await router.renewConversation(conversationId);
+        targetAgentId = `mini-jelly-${assigned}`;
       }
+    }
+
+    console.log(`[ChatAgent] ${platform} ${userId}: "${text.slice(0, 50)}..." target=${targetAgentId ?? 'default'}`);
+    await eventBus.publish('message.received', {
+      platform,
+      userId,
+      conversationId,
+      text,
+      targetAgentId: targetAgentId ?? undefined,
     });
-  }
+  };
 }
-new ChatAgent();
+
+async function main() {
+  const eventBus = new EventBus('chat-agent-1');
+  const router = new ConversationRouter();
+  const handler = createMessageHandler(eventBus, router);
+
+  const adapters: ChatAdapter[] = [createTelegramAdapter()];
+  for (const adapter of adapters) {
+    adapter.onMessage(async (msg) => {
+      if (RESET_REGEX.test(msg.text.trim())) {
+        await router.unassignConversation(msg.conversationId);
+        // Adapter-specific reply: Telegram adapter will need to send the reply.
+        // For now we skip publishing and the adapter doesn't send /reset reply
+        // unless we pass a callback. Keep simple: publish a synthetic action.completed
+        // for /reset so the adapter can send the reply via action.completed subscription.
+        await eventBus.publish('action.completed', {
+          conversationId: msg.conversationId,
+          result: {
+            output: 'Conversation unassigned. Next message will go to the default agent, or mention an agent (e.g. @Name).',
+          },
+        });
+        return;
+      }
+      await handler(msg);
+    });
+    await adapter.start();
+  }
+
+  eventBus.subscribe('action.completed', async (event) => {
+    const payload = event.payload as { conversationId?: string; result?: { output?: string } };
+    if (!payload.conversationId || !payload.result?.output) return;
+    const adapter = adapters.find((a) => payload.conversationId!.startsWith(a.conversationIdPrefix));
+    if (adapter) {
+      try {
+        await adapter.sendMessage(payload.conversationId, payload.result.output);
+      } catch (err) {
+        console.error('[ChatAgent] Error sending message:', err);
+      }
+    }
+  });
+
+  console.log('[ChatAgent] Running with adapters:', adapters.map((a) => a.platform).join(', '));
+
+  const shutdown = async () => {
+    for (const adapter of adapters) {
+      if (adapter.stop) await adapter.stop();
+    }
+    process.exit(0);
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+}
+
+main().catch((err) => {
+  console.error('[ChatAgent] Fatal:', err);
+  process.exit(1);
+});

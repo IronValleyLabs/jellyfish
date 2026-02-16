@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Save } from 'lucide-react'
-import { useParams } from 'next/navigation'
+import { getDefaultPromptForTemplate } from '@/lib/default-prompts'
 
 const AGENT_PROMPTS: Record<
   string,
@@ -68,29 +69,156 @@ Always return results in a clear, readable format.`,
   },
 }
 
+interface TeamMember {
+  id: string
+  name: string
+  role: string
+  templateId: string
+  jobDescription?: string
+}
+
+function buildMiniJellyDefaultPrompt(member: TeamMember): string {
+  const base = getDefaultPromptForTemplate(member.templateId)
+  const parts = [`You are ${member.name}, a ${member.role}.`, base]
+  if (member.jobDescription?.trim()) {
+    parts.push(`Your specific role: ${member.jobDescription.trim()}`)
+  }
+  return parts.join('\n\n')
+}
+
 export default function PromptEditor() {
   const params = useParams()
+  const router = useRouter()
   const agent = params.agent as string
+  const isMiniJelly = agent.startsWith('mj-')
   const agentConfig = AGENT_PROMPTS[agent]
 
-  const [prompt, setPrompt] = useState(agentConfig?.defaultPrompt ?? '')
+  const [prompt, setPrompt] = useState('')
+  const [miniJellyMember, setMiniJellyMember] = useState<TeamMember | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
-    if (agentConfig) setPrompt(agentConfig.defaultPrompt)
-  }, [agent])
+    if (agentConfig) {
+      fetch(`/api/system-prompts?agent=${encodeURIComponent(agent)}`)
+        .then((r) => r.json())
+        .then((data: { prompt?: string | null }) => {
+          setPrompt(data.prompt ?? agentConfig.defaultPrompt)
+        })
+        .catch(() => setPrompt(agentConfig.defaultPrompt))
+        .finally(() => setLoading(false))
+      return
+    }
+    if (isMiniJelly) {
+      Promise.all([
+        fetch('/api/team').then((r) => r.json()),
+        fetch(`/api/prompts?miniJellyId=${encodeURIComponent(agent)}`).then((r) => r.json()),
+      ])
+        .then(([team, promptData]: [TeamMember[], { systemPrompt?: string | null }]) => {
+          const member = Array.isArray(team) ? team.find((m) => m.id === agent) : null
+          setMiniJellyMember(member ?? null)
+          if (promptData.systemPrompt) {
+            setPrompt(promptData.systemPrompt)
+          } else if (member) {
+            setPrompt(buildMiniJellyDefaultPrompt(member))
+          }
+        })
+        .catch(() => setMessage({ type: 'error', text: 'Failed to load' }))
+        .finally(() => setLoading(false))
+      return
+    }
+    setLoading(false)
+  }, [agent, isMiniJelly, agentConfig])
 
-  const handleSave = () => {
-    // TODO: Save to file via API
-    alert('Prompt saved! Restart agents to apply changes.')
+  const handleSave = async () => {
+    if (agentConfig) {
+      setMessage(null)
+      setSaving(true)
+      try {
+        const res = await fetch('/api/system-prompts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agent, prompt }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok) {
+          setMessage({
+            type: 'success',
+            text: 'Prompt saved. Restart agents to apply changes.',
+          })
+        } else {
+          setMessage({ type: 'error', text: data.error ?? 'Failed to save' })
+        }
+      } catch {
+        setMessage({ type: 'error', text: 'Failed to save' })
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
+    if (isMiniJelly && miniJellyMember) {
+      setMessage(null)
+      setSaving(true)
+      try {
+        const res = await fetch('/api/prompts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ miniJellyId: agent, systemPrompt: prompt }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok) {
+          setMessage({
+            type: 'success',
+            text: 'Prompt saved. Restart this Mini Jelly (pause then activate) to apply.',
+          })
+        } else {
+          setMessage({ type: 'error', text: data.error ?? 'Failed to save' })
+        }
+      } catch {
+        setMessage({ type: 'error', text: 'Failed to save' })
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
+    setMessage({
+      type: 'success',
+      text: 'Prompt saved! Restart agents to apply changes.',
+    })
   }
 
-  if (!agentConfig) {
+  const defaultPromptForMiniJelly = miniJellyMember
+    ? buildMiniJellyDefaultPrompt(miniJellyMember)
+    : ''
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-ocean-950 via-ocean-900 to-ocean-800 flex items-center justify-center">
-        <div className="text-ocean-300">Agent not found</div>
+        <div className="text-ocean-400">Loading...</div>
       </div>
     )
   }
+
+  if (isMiniJelly && !miniJellyMember) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-ocean-950 via-ocean-900 to-ocean-800 flex items-center justify-center">
+        <div className="text-center text-ocean-300">
+          <p className="mb-4">Mini Jelly not found</p>
+          <Link href="/" className="text-ocean-400 hover:text-ocean-300 underline">
+            Back to dashboard
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const title = isMiniJelly && miniJellyMember
+    ? `${miniJellyMember.name} – System prompt`
+    : agentConfig?.title ?? 'Prompt'
+  const description = isMiniJelly
+    ? 'Customize how this Mini Jelly thinks and responds. Restart the agent to apply.'
+    : agentConfig?.description ?? ''
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-ocean-950 via-ocean-900 to-ocean-800">
@@ -98,18 +226,16 @@ export default function PromptEditor() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
             <Link
-              href="/settings"
+              href={isMiniJelly ? '/' : '/settings'}
               className="p-2 hover:bg-ocean-700/50 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5 text-ocean-300" />
             </Link>
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-ocean-300 to-ocean-500 bg-clip-text text-transparent">
-                {agentConfig.title}
+                {title}
               </h1>
-              <p className="text-sm text-ocean-400">
-                {agentConfig.description}
-              </p>
+              <p className="text-sm text-ocean-400">{description}</p>
             </div>
           </div>
         </div>
@@ -134,19 +260,41 @@ export default function PromptEditor() {
             placeholder="Enter system prompt..."
           />
 
-          <div className="flex items-center justify-between mt-6">
-            <button
-              onClick={() => setPrompt(agentConfig.defaultPrompt)}
-              className="px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors text-sm"
+          {message && (
+            <p
+              className={`mt-4 text-sm ${message.type === 'success' ? 'text-green-400' : 'text-red-400'}`}
             >
-              Reset to Default
-            </button>
+              {message.text}
+            </p>
+          )}
+
+          <div className="flex items-center justify-between mt-6">
+            {isMiniJelly && defaultPromptForMiniJelly ? (
+              <button
+                type="button"
+                onClick={() => setPrompt(defaultPromptForMiniJelly)}
+                className="px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors text-sm"
+              >
+                Reset to default
+              </button>
+            ) : agentConfig ? (
+              <button
+                type="button"
+                onClick={() => setPrompt(agentConfig.defaultPrompt)}
+                className="px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors text-sm"
+              >
+                Reset to default
+              </button>
+            ) : (
+              <span />
+            )}
             <button
               onClick={handleSave}
-              className="flex items-center gap-2 px-6 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-lg transition-colors"
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-lg transition-colors disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              Save Changes
+              {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
         </div>

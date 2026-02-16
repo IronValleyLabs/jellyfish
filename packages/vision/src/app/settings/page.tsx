@@ -1,8 +1,143 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Save, Eye, EyeOff } from 'lucide-react'
+
+interface TeamMember {
+  id: string
+  name: string
+  role: string
+}
+
+function ConversationRouting() {
+  const [assignments, setAssignments] = useState<Record<string, string>>({})
+  const [team, setTeam] = useState<TeamMember[]>([])
+  const [conversationId, setConversationId] = useState('')
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    Promise.all([fetch('/api/assignments'), fetch('/api/team')])
+      .then(([a, t]) => Promise.all([a.json(), t.json()]))
+      .then(([assign, teamList]: [Record<string, string>, TeamMember[]]) => {
+        setAssignments(assign || {})
+        setTeam(Array.isArray(teamList) ? teamList : [])
+      })
+      .catch(() => setMsg({ type: 'error', text: 'Failed to load' }))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleSetAssignment = async () => {
+    const cid = conversationId.trim()
+    if (!cid) {
+      setMsg({ type: 'error', text: 'Enter a conversation ID (e.g. telegram_123)' })
+      return
+    }
+    setMsg(null)
+    setSaving(true)
+    try {
+      const res = await fetch('/api/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: cid,
+          assignedAgentId: selectedAgentId || null,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setAssignments((prev) => {
+          const next = { ...prev }
+          if (data.assignedAgentId) next[cid] = data.assignedAgentId
+          else delete next[cid]
+          return next
+        })
+        setMsg({ type: 'success', text: data.assignedAgentId ? `Assigned ${cid} to agent` : `Cleared assignment for ${cid}` })
+      } else {
+        setMsg({ type: 'error', text: data.error ?? 'Failed to save' })
+      }
+    } catch {
+      setMsg({ type: 'error', text: 'Failed to save' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6">
+        <h2 className="text-lg font-semibold text-ocean-100 mb-4">Conversation routing</h2>
+        <p className="text-ocean-400">Loading...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6">
+      <h2 className="text-lg font-semibold text-ocean-100 mb-2">Conversation routing</h2>
+      <p className="text-sm text-ocean-400 mb-4">
+        Assign a conversation to a Mini Jelly so only that agent replies. Telegram: use <code className="bg-ocean-800/50 px-1 rounded">telegram_&lt;userId&gt;</code>. In chat, use <code className="bg-ocean-800/50 px-1 rounded">/assign mj-xxx</code> or <code className="bg-ocean-800/50 px-1 rounded">/assign</code> to clear.
+      </p>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs text-ocean-500 mb-1">Conversation ID</label>
+            <input
+              type="text"
+              value={conversationId}
+              onChange={(e) => setConversationId(e.target.value)}
+              placeholder="telegram_123456"
+              className="w-full px-3 py-2 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm"
+            />
+          </div>
+          <div className="w-48">
+            <label className="block text-xs text-ocean-500 mb-1">Agent</label>
+            <select
+              value={selectedAgentId}
+              onChange={(e) => setSelectedAgentId(e.target.value)}
+              className="w-full px-3 py-2 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm"
+            >
+              <option value="">Default (main Core)</option>
+              {team.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={handleSetAssignment}
+            disabled={saving}
+            className="px-4 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-lg text-sm disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Set'}
+          </button>
+        </div>
+        {msg && (
+          <p className={`text-sm ${msg.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+            {msg.text}
+          </p>
+        )}
+        {Object.keys(assignments).length > 0 && (
+          <div>
+            <p className="text-xs text-ocean-500 mb-2">Current assignments</p>
+            <ul className="text-sm text-ocean-300 space-y-1">
+              {Object.entries(assignments).map(([cid, agentId]) => (
+                <li key={cid}>
+                  <code className="bg-ocean-800/50 px-1 rounded">{cid}</code> → {agentId}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function Settings() {
   const [showTokens, setShowTokens] = useState(false)
@@ -12,10 +147,50 @@ export default function Settings() {
     aiModel: 'anthropic/claude-3.5-sonnet',
     redisHost: 'localhost',
   })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const handleSave = () => {
-    // TODO: Save to .env file via API
-    alert('Settings saved! Restart agents to apply changes.')
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed to load'))))
+      .then((data: { telegramToken?: string; openrouterKey?: string; aiModel?: string; redisHost?: string }) => {
+        setConfig({
+          telegramToken: data.telegramToken ?? '',
+          openrouterKey: data.openrouterKey ?? '',
+          aiModel: data.aiModel ?? 'anthropic/claude-3.5-sonnet',
+          redisHost: data.redisHost ?? 'localhost',
+        })
+      })
+      .catch(() => setMessage({ type: 'error', text: 'Could not load settings' }))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleSave = async () => {
+    setMessage(null)
+    setSaving(true)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramToken: config.telegramToken,
+          openrouterKey: config.openrouterKey,
+          aiModel: config.aiModel,
+          redisHost: config.redisHost,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setMessage({ type: 'success', text: data.message ?? 'Settings saved. Restart agents to apply changes.' })
+      } else {
+        setMessage({ type: 'error', text: data.error ?? 'Failed to save settings' })
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to save settings' })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -49,6 +224,9 @@ export default function Settings() {
               API Configuration
             </h2>
 
+            {loading ? (
+              <p className="text-ocean-400">Loading settings...</p>
+            ) : (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-ocean-300 mb-2">
@@ -76,7 +254,7 @@ export default function Settings() {
                   </button>
                 </div>
                 <p className="text-xs text-ocean-500 mt-1">
-                  Get from @BotFather on Telegram
+                  Get from @BotFather on Telegram. Leave masked value to keep current.
                 </p>
               </div>
 
@@ -103,6 +281,7 @@ export default function Settings() {
                   >
                     openrouter.ai/keys
                   </a>
+                  . Leave masked value to keep current.
                 </p>
               </div>
 
@@ -141,15 +320,28 @@ export default function Settings() {
                 />
               </div>
             </div>
+            )}
+
+            {message && (
+              <p
+                className={`mt-4 text-sm ${message.type === 'success' ? 'text-green-400' : 'text-red-400'}`}
+              >
+                {message.text}
+              </p>
+            )}
 
             <button
               onClick={handleSave}
-              className="mt-6 flex items-center gap-2 px-6 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-lg transition-colors"
+              disabled={loading || saving}
+              className="mt-6 flex items-center gap-2 px-6 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:pointer-events-none"
             >
               <Save className="w-4 h-4" />
-              Save Configuration
+              {saving ? 'Saving…' : 'Save Configuration'}
             </button>
           </div>
+
+          {/* Conversation routing */}
+          <ConversationRouting />
 
           {/* Agent Prompts */}
           <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6">

@@ -34,6 +34,10 @@ CHAT_PID=$!
 sleep 2
 pnpm --filter @jellyfish/vision dev &
 VISION_PID=$!
+sleep 5
+echo ""
+echo "🪼 Respawn Mini Jellys (if any)..."
+curl -s -X POST http://localhost:3000/api/team/respawn >/dev/null 2>&1 || true
 echo ""
 echo "✅ Jellyfish está corriendo!"
 echo "   - Memory Agent (PID: $MEMORY_PID)"

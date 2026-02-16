@@ -9,3 +9,6 @@ dist/
 .DS_Store
 whatsapp_auth_info/
 drizzle/
+logs/
+packages/vision/data/processes.json
+data/conversation-assignments.json

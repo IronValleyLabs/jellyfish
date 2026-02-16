@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus, Activity, Pause, Settings, TrendingUp } from 'lucide-react'
+import { Plus, Activity, Settings, TrendingUp, FileText } from 'lucide-react'
 
 interface TeamMember {
   id: string
@@ -19,21 +19,90 @@ interface TeamMember {
   lastAction: string
 }
 
+interface Metrics {
+  actionsToday: number
+  costToday: number
+  lastAction: string
+  lastActionTime: number
+  nanoCount: number
+}
+
+interface AgentStatus {
+  online: boolean
+  pid: number
+  uptime: number
+}
+
+interface MemberWithMeta extends TeamMember {
+  metrics: Metrics
+  agentStatus: AgentStatus | null
+}
+
+const DEFAULT_METRICS: Metrics = {
+  actionsToday: 0,
+  costToday: 0,
+  lastAction: 'Never',
+  lastActionTime: 0,
+  nanoCount: 0,
+}
+
 const MAX_TEAM_SIZE = 20
+const POLL_INTERVAL_MS = 10000
+
+function formatRelative(ts: number): string {
+  if (!ts) return ''
+  const sec = Math.floor((Date.now() - ts) / 1000)
+  if (sec < 60) return 'just now'
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`
+  return `${Math.floor(sec / 86400)}d ago`
+}
 
 export default function Dashboard() {
-  const [team, setTeam] = useState<TeamMember[]>([])
+  const [teamWithMeta, setTeamWithMeta] = useState<MemberWithMeta[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetch('/api/team')
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed to load team'))))
-      .then((data: TeamMember[]) => setTeam(Array.isArray(data) ? data : []))
-      .catch((e) => setError(e instanceof Error ? e.message : 'Error loading team'))
-      .finally(() => setLoading(false))
+  const loadData = useCallback(async () => {
+    const [teamRes, metricsRes, statusRes] = await Promise.all([
+      fetch('/api/team'),
+      fetch('/api/metrics'),
+      fetch('/api/status'),
+    ])
+    if (!teamRes.ok) throw new Error('Failed to load team')
+    const team: TeamMember[] = Array.isArray(await teamRes.json()) ? await teamRes.json() : []
+    const metrics: Record<string, Metrics> = metricsRes.ok ? await metricsRes.json() : {}
+    const status: Record<string, AgentStatus> = statusRes.ok ? await statusRes.json() : {}
+
+    const merged: MemberWithMeta[] = team.map((m) => {
+      const agentId = m.id.startsWith('mini-jelly-') ? m.id : `mini-jelly-${m.id}`
+      const mMetrics = metrics[agentId] ?? DEFAULT_METRICS
+      const agentStatus = status[m.id] ?? null
+      return {
+        ...m,
+        nanoCount: mMetrics.nanoCount,
+        actionsToday: mMetrics.actionsToday,
+        costToday: mMetrics.costToday,
+        lastAction: mMetrics.lastAction === 'Never' ? 'Never' : mMetrics.lastAction,
+        metrics: mMetrics,
+        agentStatus,
+      }
+    })
+    setTeamWithMeta(merged)
   }, [])
 
+  useEffect(() => {
+    loadData()
+      .catch((e) => setError(e instanceof Error ? e.message : 'Error loading data'))
+      .finally(() => setLoading(false))
+  }, [loadData])
+
+  useEffect(() => {
+    const interval = setInterval(loadData, POLL_INTERVAL_MS)
+    return () => clearInterval(interval)
+  }, [loadData])
+
+  const team = teamWithMeta
   const activeCount = team.filter((m) => m.status === 'active').length
   const totalActions = team.reduce((sum, m) => sum + m.actionsToday, 0)
   const totalNano = team.reduce((sum, m) => sum + m.nanoCount, 0)
@@ -62,6 +131,13 @@ export default function Dashboard() {
               >
                 <Activity className="w-4 h-4" />
                 Live Logs
+              </Link>
+              <Link
+                href="/analytics"
+                className="flex items-center gap-2 px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors"
+              >
+                <TrendingUp className="w-4 h-4" />
+                Analytics
               </Link>
               <Link
                 href="/settings"
@@ -186,6 +262,21 @@ export default function Dashboard() {
                                 <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                                 {member.status === 'active' ? 'Active' : 'Paused'}
                               </span>
+                              {member.agentStatus && (
+                                <span
+                                  className="flex items-center gap-1.5 text-xs"
+                                  title={member.agentStatus.online ? `Online (PID ${member.agentStatus.pid})` : 'Offline'}
+                                >
+                                  <span
+                                    className={`w-2 h-2 rounded-full ${
+                                      member.agentStatus.online
+                                        ? 'bg-green-400 animate-pulse'
+                                        : 'bg-gray-500'
+                                    }`}
+                                  />
+                                  {member.agentStatus.online ? 'Online' : 'Offline'}
+                                </span>
+                              )}
                             </div>
                             {member.jobDescription && (
                               <p className="text-sm text-ocean-400 mb-2 line-clamp-2">
@@ -194,6 +285,11 @@ export default function Dashboard() {
                             )}
                             <p className="text-sm text-ocean-500 mb-3">
                               Last action: {member.lastAction}
+                              {member.metrics.lastActionTime > 0 && (
+                                <span className="text-ocean-600 ml-1">
+                                  ({formatRelative(member.metrics.lastActionTime)})
+                                </span>
+                              )}
                             </p>
                             <div className="flex items-center gap-6 text-sm">
                               <div>
@@ -219,11 +315,11 @@ export default function Dashboard() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Link
-                            href={`/mini/${member.id}`}
+                            href={`/prompts/${member.id}`}
                             className="p-2 hover:bg-ocean-700/50 rounded-lg transition-colors"
-                            title="Configure"
+                            title="Edit prompt"
                           >
-                            <Activity className="w-5 h-5 text-ocean-300" />
+                            <FileText className="w-5 h-5 text-ocean-300" />
                           </Link>
                           <Link
                             href={`/mini/${member.id}`}
