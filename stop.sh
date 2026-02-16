@@ -1,6 +1,8 @@
 #!/bin/bash
-echo "🛑 Deteniendo Starfish..."
-pkill -f "@jellyfish/memory"
-pkill -f "@jellyfish/core"
-pkill -f "@jellyfish/chat"
-echo "✅ Todos los agentes detenidos"
+echo "🛑 Stopping Jellyfish..."
+pkill -f "@jellyfish/memory" 2>/dev/null
+pkill -f "@jellyfish/core" 2>/dev/null
+pkill -f "@jellyfish/action" 2>/dev/null
+pkill -f "@jellyfish/chat" 2>/dev/null
+pkill -f "@jellyfish/vision" 2>/dev/null
+echo "✅ All agents stopped"

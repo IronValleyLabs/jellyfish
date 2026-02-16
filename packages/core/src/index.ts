@@ -82,6 +82,7 @@ class CoreAgent {
             {
               conversationId: payload.conversationId,
               result: { output: content },
+              agentId: this.agentId,
             },
             event.correlationId
           );

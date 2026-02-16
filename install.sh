@@ -142,23 +142,10 @@ read -p "Choose (1 or 2): " REDIS_OPTION
 if [ "$REDIS_OPTION" = "1" ]; then
   echo -e "${GREEN}Good choice — no local Redis to install.${NC}"
   echo ""
-  read -p "Open Redis Cloud signup in your browser? (y/n) " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if command -v open &> /dev/null; then
-      open "https://redis.com/try-free/"
-    elif command -v xdg-open &> /dev/null; then
-      xdg-open "https://redis.com/try-free/"
-    elif command -v start &> /dev/null; then
-      start "https://redis.com/try-free/"
-    fi
-    echo "When you have the connection URL, paste it here."
-  fi
+  echo "  Sign up at https://redis.com/try-free/ and create a database."
+  echo "  Copy the connection URL. Example: redis://default:YourPassword@redis-12345.redis.cloud.com:12345"
   echo ""
-  echo "  Create a database at Redis Cloud, then copy the connection URL."
-  echo "  Example: redis://default:YourPassword@redis-12345.redis.cloud.com:12345"
-  echo ""
-  read -p "Paste your Redis URL here (don't share it elsewhere): " REDIS_URL
+  read -p "Paste your Redis URL: " REDIS_URL
   if [[ -n "$REDIS_URL" ]]; then
     # Parse redis://user:password@host:port (e.g. redis://default:PASSWORD@host:port)
     if [[ $REDIS_URL =~ redis://([^:]+):([^@]+)@([^:]+):([0-9]+) ]]; then
@@ -175,13 +162,16 @@ if [ "$REDIS_OPTION" = "1" ]; then
     fi
   fi
 else
-  echo "Using local Redis (localhost:6379). Make sure redis-server is running."
+  echo "Using local Redis (localhost:6379). You must run redis-server before starting Jellyfish."
 fi
 
 # Step 2/3 — LLM
 echo ""
 echo -e "${YELLOW}Step 2/3 — AI provider${NC}"
-echo "  1) OpenRouter (recommended, many models)"
+echo "  OpenRouter = one key for Claude, Gemini, Llama, and more."
+echo "  OpenAI = GPT-4o and other OpenAI models."
+echo ""
+echo "  1) OpenRouter (recommended)"
 echo "  2) OpenAI"
 echo ""
 read -p "Choose (1 or 2): " LLM_OPTION
@@ -189,12 +179,7 @@ read -p "Choose (1 or 2): " LLM_OPTION
 if [ "$LLM_OPTION" = "2" ]; then
   $SED_I "s|LLM_PROVIDER=.*|LLM_PROVIDER=openai|" .env
   echo ""
-  read -p "Open OpenAI API keys page in browser? (y/n) " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if command -v open &> /dev/null; then open "https://platform.openai.com/api-keys"; elif command -v xdg-open &> /dev/null; then xdg-open "https://platform.openai.com/api-keys"; elif command -v start &> /dev/null; then start "https://platform.openai.com/api-keys"; fi
-  fi
-  echo "Paste your key here (don't share it with anyone):"
+  echo "Get your key at https://platform.openai.com/api-keys"
   read -p "OpenAI API key: " OPENAI_KEY
   if [[ -n "$OPENAI_KEY" ]]; then
     $SED_I "s|OPENAI_API_KEY=.*|OPENAI_API_KEY=$OPENAI_KEY|" .env
@@ -202,12 +187,7 @@ if [ "$LLM_OPTION" = "2" ]; then
 else
   $SED_I "s|LLM_PROVIDER=.*|LLM_PROVIDER=openrouter|" .env
   echo ""
-  read -p "Open OpenRouter keys page in browser? (y/n) " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if command -v open &> /dev/null; then open "https://openrouter.ai/keys"; elif command -v xdg-open &> /dev/null; then xdg-open "https://openrouter.ai/keys"; elif command -v start &> /dev/null; then start "https://openrouter.ai/keys"; fi
-  fi
-  echo "Paste your key here (don't share it with anyone):"
+  echo "Get your key at https://openrouter.ai/keys"
   read -p "OpenRouter API key: " OPENROUTER_KEY
   if [[ -n "$OPENROUTER_KEY" ]]; then
     $SED_I "s|OPENROUTER_API_KEY=.*|OPENROUTER_API_KEY=$OPENROUTER_KEY|" .env
@@ -224,13 +204,8 @@ echo -e "${YELLOW}Step 3/3 — Telegram bot (optional)${NC}"
 read -p "Configure Telegram now? (y/n) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-  read -p "Open BotFather in browser? (y/n) " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if command -v open &> /dev/null; then open "https://t.me/BotFather"; elif command -v xdg-open &> /dev/null; then xdg-open "https://t.me/BotFather"; elif command -v start &> /dev/null; then start "https://t.me/BotFather"; fi
-  fi
-  echo "Create a bot, then paste the token here (don't share it):"
-  read -p "Bot token: " TELEGRAM_TOKEN
+  echo "Create a bot at https://t.me/BotFather then paste the token."
+  read -p "Telegram bot token: " TELEGRAM_TOKEN
   if [[ -n "$TELEGRAM_TOKEN" ]]; then
     $SED_I "s|TELEGRAM_BOT_TOKEN=.*|TELEGRAM_BOT_TOKEN=$TELEGRAM_TOKEN|" .env
     rm -f .env.bak

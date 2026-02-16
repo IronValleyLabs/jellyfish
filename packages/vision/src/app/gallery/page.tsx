@@ -90,9 +90,6 @@ export default function Gallery() {
                     <p className="text-sm text-ocean-400 mb-4 line-clamp-2">
                       {template.description}
                     </p>
-                    <div className="text-xs text-ocean-500 mb-4">
-                      {template.estimatedCost}
-                    </div>
                     <button
                       type="button"
                       onClick={() => openAddModal(template)}

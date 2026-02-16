@@ -5,4 +5,7 @@ export const messages = sqliteTable('messages', {
   role: text('role', { enum: ['user', 'assistant'] }).notNull(),
   content: text('content').notNull(),
   timestamp: integer('timestamp', { mode: 'timestamp' }).notNull(),
+  userId: text('user_id'),
+  platform: text('platform'),
+  agentId: text('agent_id'),
 });

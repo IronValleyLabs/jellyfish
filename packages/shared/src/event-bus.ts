@@ -13,7 +13,7 @@ export class EventBus {
     const redisHost = process.env.REDIS_HOST || 'localhost';
     this.publisher = new Redis({ host: redisHost });
     this.subscriber = new Redis({ host: redisHost });
-    console.log(`[EventBus] Agente ${agentId} conectado a Redis en ${redisHost}`);
+    console.log(`[EventBus] Agent ${agentId} connected to Redis at ${redisHost}`);
 
     this.subscriber.on('message', (channel, message) => {
       const event: Event = JSON.parse(message);

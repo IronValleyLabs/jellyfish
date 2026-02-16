@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus, Activity, Settings, TrendingUp, FileText } from 'lucide-react'
+import { Plus, Activity, Settings, TrendingUp, FileText, MessageSquare } from 'lucide-react'
 
 interface TeamMember {
   id: string
@@ -77,7 +77,8 @@ export default function Dashboard() {
       fetch('/api/status'),
     ])
     if (!teamRes.ok) throw new Error('Failed to load team')
-    const team: TeamMember[] = Array.isArray(await teamRes.json()) ? await teamRes.json() : []
+    const teamData = await teamRes.json()
+    const team: TeamMember[] = Array.isArray(teamData) ? teamData : []
     const metrics: Record<string, Metrics> = metricsRes.ok ? await metricsRes.json() : {}
     const statusRaw: Record<string, AgentStatus | Record<string, MainProcessStatus>> = statusRes.ok ? await statusRes.json() : {}
     const { _main, ...status } = statusRaw
@@ -142,6 +143,13 @@ export default function Dashboard() {
               >
                 <Activity className="w-4 h-4" />
                 Live Logs
+              </Link>
+              <Link
+                href="/chat"
+                className="flex items-center gap-2 px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Chat
               </Link>
               <Link
                 href="/analytics"

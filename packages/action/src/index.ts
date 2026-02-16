@@ -21,7 +21,7 @@ class ActionAgent {
   private metrics: MetricsCollector;
 
   constructor() {
-    console.log('[ActionAgent] Iniciando...');
+    console.log('[ActionAgent] Starting...');
     this.eventBus = new EventBus('action-agent-1');
     this.bashExecutor = new BashExecutor();
     this.webSearcher = new WebSearcher();
@@ -72,6 +72,7 @@ class ActionAgent {
             {
               conversationId: payload.conversationId,
               result: { output: result.output },
+              agentId,
             },
             event.correlationId
           );

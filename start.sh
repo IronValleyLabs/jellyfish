@@ -15,6 +15,27 @@ if [ -f .env ]; then
   set +a
   echo "✅ .env loaded"
 fi
+
+REDIS_HOST="${REDIS_HOST:-localhost}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+if ! node -e "
+  const net = require('net');
+  const host = process.env.REDIS_HOST || 'localhost';
+  const port = parseInt(process.env.REDIS_PORT || '6379', 10);
+  const s = net.connect(port, host, () => { s.destroy(); process.exit(0); });
+  s.on('error', () => process.exit(1));
+  s.setTimeout(3000, () => { s.destroy(); process.exit(1); });
+" 2>/dev/null; then
+  echo "❌ Redis is not reachable at $REDIS_HOST:$REDIS_PORT"
+  echo ""
+  echo "  • Use Redis Cloud (free): https://redis.com/try-free/"
+  echo "    Then set REDIS_HOST, REDIS_PORT, REDIS_PASSWORD in .env"
+  echo "  • Or start local Redis: redis-server"
+  echo ""
+  exit 1
+fi
+echo "✅ Redis reachable at $REDIS_HOST:$REDIS_PORT"
+
 echo "🪼 Starting Jellyfish..."
 echo ""
 echo "✅ Building packages..."

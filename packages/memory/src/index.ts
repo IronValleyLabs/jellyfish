@@ -26,16 +26,32 @@ async function writeAssignments(assignments: Record<string, string>): Promise<vo
   await fs.writeFile(ASSIGNMENTS_FILE, JSON.stringify(assignments, null, 2), 'utf-8');
 }
 
+function addMessagesColumnsIfNeeded(sqlite: Database): void {
+  const cols = ['user_id', 'platform', 'agent_id'];
+  for (const col of cols) {
+    try {
+      sqlite.exec(`ALTER TABLE messages ADD COLUMN ${col} TEXT`);
+    } catch (e: unknown) {
+      if (String((e as { message?: string })?.message ?? '').includes('duplicate column')) {
+        // already exists
+      } else {
+        throw e;
+      }
+    }
+  }
+}
+
 class MemoryAgent {
   private eventBus: EventBus;
   private db: ReturnType<typeof drizzle<typeof schema>>;
   constructor() {
-    console.log('[MemoryAgent] Iniciando...');
+    console.log('[MemoryAgent] Starting...');
     this.eventBus = new EventBus('memory-agent-1');
     const dbPath = process.env.DATABASE_URL || './sqlite.db';
     const sqlite = new Database(dbPath);
+    addMessagesColumnsIfNeeded(sqlite);
     this.db = drizzle(sqlite, { schema });
-    console.log(`[MemoryAgent] Base de datos conectada: ${dbPath}`);
+    console.log(`[MemoryAgent] Database connected: ${dbPath}`);
     this.setupSubscriptions();
   }
   private setupSubscriptions() {
@@ -81,6 +97,8 @@ class MemoryAgent {
         role: 'user',
         content: payload.text,
         timestamp: new Date(event.timestamp),
+        userId: payload.userId ?? null,
+        platform: payload.platform ?? null,
       });
       const history = await this.db.query.messages.findMany({
         where: eq(schema.messages.conversationId, payload.conversationId),
@@ -111,7 +129,7 @@ class MemoryAgent {
       }
     });
     this.eventBus.subscribe('action.completed', async (event) => {
-      const payload = event.payload as { conversationId?: string; result?: { output?: string } };
+      const payload = event.payload as { conversationId?: string; result?: { output?: string }; agentId?: string };
       if (payload.result?.output && payload.conversationId) {
         console.log(`[MemoryAgent] Saving assistant response for ${payload.conversationId}`);
         await this.db.insert(schema.messages).values({
@@ -119,6 +137,7 @@ class MemoryAgent {
           role: 'assistant',
           content: payload.result.output,
           timestamp: new Date(event.timestamp),
+          agentId: payload.agentId ?? null,
         });
       }
     });

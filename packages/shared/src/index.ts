@@ -36,6 +36,8 @@ export interface ActionCompletedPayload extends EventPayload {
     output: string;
     files?: string[];
   };
+  /** Mini Jelly (agent) that produced this response. */
+  agentId?: string;
 }
 
 export interface ContextLoadedPayload extends EventPayload {

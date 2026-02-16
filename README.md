@@ -16,15 +16,7 @@
 
 ## Quick Start (one command)
 
-From an empty directory, run the interactive installer. It checks prerequisites, installs dependencies, and guides you through Redis + LLM + optional Telegram setup.
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/IronValleyLabs/jellyfish/main/install.sh -o install.sh
-chmod +x install.sh
-./install.sh
-```
-
-Or, if you already have the repo:
+Clone the repo and run the installer. It checks prerequisites and asks only for API keys (no browser popups).
 
 ```bash
 git clone https://github.com/IronValleyLabs/jellyfish.git
@@ -33,19 +25,23 @@ chmod +x install.sh
 ./install.sh
 ```
 
-The script will:
+You will be asked for:
 
-- Detect OS (macOS, Linux, WSL)
-- Check Node.js 18+ and install pnpm if needed
-- Clone or use existing repo, run `pnpm install`
-- Configure Redis (Redis Cloud or local), LLM (OpenRouter or OpenAI), and optional Telegram
-- Build and start Jellyfish, then open the dashboard in your browser
+1. **Redis** — Choose Redis Cloud (paste connection URL from https://redis.com/try-free/) or local (you must run `redis-server` yourself).
+2. **AI provider** — OpenRouter or OpenAI, then paste the API key (from https://openrouter.ai/keys or https://platform.openai.com/api-keys).
+3. **Telegram** (optional) — Bot token from https://t.me/BotFather.
 
-**To install from a different repo:**
+Then the script builds, starts Jellyfish, and opens the dashboard. If you see any error, check **Troubleshooting** below.
+
+**Alternative (run installer without cloning first):**
 
 ```bash
-JELLYFISH_REPO_URL=https://github.com/your-org/your-repo.git ./install.sh
+curl -fsSL https://raw.githubusercontent.com/IronValleyLabs/jellyfish/main/install.sh -o install.sh
+chmod +x install.sh
+./install.sh
 ```
+
+(Use your branch instead of `main` if needed.)
 
 ---
 
@@ -120,6 +116,7 @@ This builds packages and starts:
 ## Dashboard (Vision)
 
 - **Home** — Team overview (up to 20 Mini Jellys), status, links to Gallery and Settings
+- **Chat** — Full history of incoming and outgoing messages from all platforms (Telegram, WhatsApp, etc.) with user id, platform, and which Mini Jelly replied
 - **Gallery** — Predefined AI roles; add to team with optional job description
 - **Mini Jelly** (`/mini/[id]`) — Edit job description, status (active/paused), remove from team
 - **Live Logs** — Real-time event stream from Redis (SSE)
@@ -139,6 +136,33 @@ This builds packages and starts:
 | GET | `/api/status` | Process status |
 | GET | `/api/metrics` | Token usage / metrics |
 | GET/POST | `/api/settings` | Read/write settings (LLM, Redis, etc.) |
+
+---
+
+## Troubleshooting
+
+**`Redis is not reachable` / `[ioredis] ECONNREFUSED`**
+
+Redis must be running before you start Jellyfish. Either:
+
+- **Redis Cloud (easiest):** Sign up at https://redis.com/try-free/, create a database, copy the connection URL. In the project folder, edit `.env` and set `REDIS_HOST`, `REDIS_PORT`, and `REDIS_PASSWORD` from that URL (or run `./install.sh` again and choose option 1 for Redis).
+- **Local:** Install Redis (`brew install redis` on macOS) and run `redis-server` in a terminal, then run `./start.sh` again.
+
+**`Node ... is too old`**
+
+You need Node 18 or newer. Install Node 20: `nvm install 20 && nvm use 20`, or from https://nodejs.org.
+
+**`pnpm: command not found`**
+
+Run `npm install -g pnpm`, then run the installer or `pnpm install` again.
+
+**Dashboard shows "Body is disturbed or locked" or blank / error**
+
+Usually means the backend could not connect to Redis. Fix Redis (see above), then restart with `./stop.sh` and `./start.sh`, and refresh the browser.
+
+**Installer fails on `pnpm install` (e.g. better-sqlite3)**
+
+Ensure Node 18+ is active (`node -v`). If you still see a build error, open an issue on GitHub with your OS and Node version.
 
 ---
 

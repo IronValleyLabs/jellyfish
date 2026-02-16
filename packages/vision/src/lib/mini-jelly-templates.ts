@@ -6,7 +6,6 @@ export interface MiniJellyTemplate {
   description: string
   defaultGoals: string[]
   requiredAccess: string[]
-  estimatedCost: string
   capabilities: string[]
 }
 
@@ -26,7 +25,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Report weekly analytics',
     ],
     requiredAccess: ['Instagram API', 'Twitter API', 'Facebook API'],
-    estimatedCost: '$25-40/month',
     capabilities: [
       'Content creation',
       'Comment moderation',
@@ -48,7 +46,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Report weekly performance',
     ],
     requiredAccess: ['Meta Ads API', 'Google Ads API'],
-    estimatedCost: '$30-50/month',
     capabilities: [
       'Campaign optimization',
       'Creative generation',
@@ -70,7 +67,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Maintain content calendar',
     ],
     requiredAccess: ['WordPress API', 'SEO Tools'],
-    estimatedCost: '$20-35/month',
     capabilities: [
       'Content writing',
       'SEO optimization',
@@ -92,7 +88,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Segment audiences',
     ],
     requiredAccess: ['Mailchimp API', 'SendGrid API'],
-    estimatedCost: '$15-25/month',
     capabilities: [
       'Campaign creation',
       'List management',
@@ -116,7 +111,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Update knowledge base weekly',
     ],
     requiredAccess: ['Zendesk API', 'Intercom API', 'Slack'],
-    estimatedCost: '$40-60/month',
     capabilities: [
       'Ticket resolution',
       'Live chat',
@@ -138,7 +132,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Close 10% of qualified leads',
     ],
     requiredAccess: ['HubSpot API', 'Salesforce API', 'Calendar API'],
-    estimatedCost: '$35-55/month',
     capabilities: [
       'Lead qualification',
       'Demo scheduling',
@@ -160,7 +153,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Report delays within 1 hour',
     ],
     requiredAccess: ['Shipstation API', 'Inventory System'],
-    estimatedCost: '$25-40/month',
     capabilities: [
       'Shipment tracking',
       'Inventory management',
@@ -182,7 +174,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Respond to incidents < 5 minutes',
     ],
     requiredAccess: ['AWS API', 'GitHub API', 'Monitoring Tools'],
-    estimatedCost: '$30-50/month',
     capabilities: [
       'Server monitoring',
       'Deployment',
@@ -206,7 +197,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Alert on anomalies',
     ],
     requiredAccess: ['Database', 'Analytics Tools'],
-    estimatedCost: '$25-40/month',
     capabilities: [
       'Data analysis',
       'Dashboard creation',
@@ -228,7 +218,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Report monthly insights',
     ],
     requiredAccess: ['Web Scraping', 'Industry APIs'],
-    estimatedCost: '$20-35/month',
     capabilities: [
       'Competitor analysis',
       'Trend research',
@@ -250,7 +239,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Report weekly quality metrics',
     ],
     requiredAccess: ['Testing Framework', 'CI/CD Pipeline'],
-    estimatedCost: '$20-30/month',
     capabilities: [
       'Automated testing',
       'Bug identification',
@@ -272,7 +260,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Present quarterly insights',
     ],
     requiredAccess: ['Database', 'BI Tools'],
-    estimatedCost: '$30-45/month',
     capabilities: [
       'KPI tracking',
       'Forecasting',
@@ -296,7 +283,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Alert on unusual transactions',
     ],
     requiredAccess: ['QuickBooks API', 'Bank APIs'],
-    estimatedCost: '$25-40/month',
     capabilities: [
       'Account reconciliation',
       'Expense tracking',
@@ -318,7 +304,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Update employee records weekly',
     ],
     requiredAccess: ['HRIS System', 'Calendar API'],
-    estimatedCost: '$20-35/month',
     capabilities: [
       'Onboarding',
       'PTO tracking',
@@ -340,7 +325,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Report monthly receivables',
     ],
     requiredAccess: ['Invoicing Software', 'Payment Gateway'],
-    estimatedCost: '$15-25/month',
     capabilities: [
       'Invoice creation',
       'Payment tracking',
@@ -362,7 +346,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Prepare daily briefings',
     ],
     requiredAccess: ['Calendar API', 'Email API'],
-    estimatedCost: '$30-45/month',
     capabilities: [
       'Calendar management',
       'Email handling',
@@ -386,7 +369,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Update design library monthly',
     ],
     requiredAccess: ['Design Tools', 'Brand Assets'],
-    estimatedCost: '$35-55/month',
     capabilities: [
       'Graphic design',
       'Brand consistency',
@@ -408,7 +390,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Maintain video library',
     ],
     requiredAccess: ['Video Editing Tools', 'Platform APIs'],
-    estimatedCost: '$40-60/month',
     capabilities: [
       'Video editing',
       'Content creation',
@@ -430,7 +411,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Respond to requests < 12 hours',
     ],
     requiredAccess: ['Photo Editing Tools', 'Storage'],
-    estimatedCost: '$25-40/month',
     capabilities: [
       'Photo editing',
       'Image enhancement',
@@ -452,7 +432,6 @@ export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
       'Update audio library',
     ],
     requiredAccess: ['Audio Editing Tools', 'Music Library'],
-    estimatedCost: '$30-45/month',
     capabilities: [
       'Audio editing',
       'Podcast production',
