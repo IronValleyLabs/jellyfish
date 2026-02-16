@@ -5,6 +5,7 @@ import { WebSearcher } from './web-searcher';
 import { DraftExecutor } from './draft-executor';
 import { ImageExecutor } from './image-executor';
 import { BrowserRunner } from './browser-runner';
+import { CreateSkillExecutor } from './create-skill-executor';
 import dotenv from 'dotenv';
 
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
@@ -22,6 +23,9 @@ interface IntentPayload {
     imagePathOrUrl?: string;
     content?: string;
     scheduledDate?: string;
+    name?: string;
+    description?: string;
+    instructions?: string;
   };
   conversationId?: string;
   agentId?: string;
@@ -34,6 +38,7 @@ class ActionAgent {
   private draftExecutor: DraftExecutor;
   private imageExecutor: ImageExecutor;
   private browserRunner: BrowserRunner;
+  private createSkillExecutor: CreateSkillExecutor;
   private metrics: MetricsCollector;
 
   constructor() {
@@ -44,6 +49,7 @@ class ActionAgent {
     this.draftExecutor = new DraftExecutor();
     this.imageExecutor = new ImageExecutor();
     this.browserRunner = new BrowserRunner();
+    this.createSkillExecutor = new CreateSkillExecutor();
     this.metrics = new MetricsCollector();
     if (this.draftExecutor.isEnabled()) console.log('[ActionAgent] Draft LLM enabled');
     if (this.imageExecutor.isEnabled()) console.log('[ActionAgent] Image generation (Nano Banana Pro) enabled');
@@ -88,6 +94,14 @@ class ActionAgent {
               content: payload.params?.content || payload.params?.prompt || '',
               scheduledDate: payload.params?.scheduledDate,
             });
+            break;
+          case 'create_skill':
+            result = await this.createSkillExecutor.execute(
+              payload.agentId ?? 'core-agent-1',
+              payload.params?.name ?? '',
+              payload.params?.description ?? '',
+              payload.params?.instructions ?? ''
+            );
             break;
           case 'response':
             result = { output: payload.params?.text || 'No response' };

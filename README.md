@@ -124,6 +124,8 @@ This builds packages and starts:
 
 ## Dashboard (Vision)
 
+![Jellyfish Platform Dashboard](docs/dashboard.png)
+
 - **Home** — Team overview (up to 20 Mini Jellys), status, links to Gallery and Settings
 - **Chat** — Full history of incoming and outgoing messages from all platforms (Telegram, WhatsApp, etc.) with user id, platform, and which Mini Jelly replied
 - **Gallery** — Predefined AI roles; add to team with optional job description

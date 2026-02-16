@@ -14,11 +14,17 @@ export function createTelegramAdapter(): ChatAdapter | null {
     platform: 'telegram',
     conversationIdPrefix: PREFIX,
     async start() {
+      try {
+        await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+      } catch (e) {
+        console.warn('[TelegramAdapter] deleteWebhook failed (optional):', (e as Error).message);
+      }
       bot.on('text', (ctx) => {
         const userId = ctx.from!.id.toString();
         const conversationId = PREFIX + userId;
         const text = ctx.message.text ?? '';
         const userName = [ctx.from!.first_name, ctx.from!.last_name].filter(Boolean).join(' ') || undefined;
+        console.log('[TelegramAdapter] Message from', conversationId, ':', text.slice(0, 50) + (text.length > 50 ? '…' : ''));
         if (messageHandler) {
           messageHandler({
             conversationId,
@@ -30,7 +36,7 @@ export function createTelegramAdapter(): ChatAdapter | null {
         }
       });
       await bot.launch();
-      console.log('[TelegramAdapter] Started');
+      console.log('[TelegramAdapter] Started (long polling). If the bot does not reply, check: Redis, LLM keys in .env, and that no webhook is set on this bot.');
     },
     async stop() {
       bot.stop('SIGTERM');
@@ -38,7 +44,13 @@ export function createTelegramAdapter(): ChatAdapter | null {
     async sendMessage(conversationId: string, text: string) {
       if (!conversationId.startsWith(PREFIX)) return;
       const userId = conversationId.slice(PREFIX.length);
-      await bot.telegram.sendMessage(userId, text);
+      try {
+        await bot.telegram.sendMessage(userId, text);
+        console.log('[TelegramAdapter] Sent to', conversationId);
+      } catch (err) {
+        console.error('[TelegramAdapter] sendMessage failed:', err);
+        throw err;
+      }
     },
     onMessage(handler) {
       messageHandler = handler;

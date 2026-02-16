@@ -12,6 +12,7 @@ const PROCESSES_FILE = path.join(DATA_DIR, 'processes.json')
 const PROMPTS_FILE = path.join(DATA_DIR, 'prompts.json')
 const HUMAN_FILE = path.join(DATA_DIR, 'human.json')
 const LOGS_DIR = path.join(ROOT, 'logs')
+const AGENT_CREATED_SKILLS_FILE = path.join(ROOT, 'data', 'agent-created-skills.json')
 
 async function readStoredPrompts(): Promise<Record<string, { systemPrompt: string; updatedAt: number }>> {
   try {
@@ -58,6 +59,26 @@ async function readProcesses(): Promise<ProcessesMap> {
   }
 }
 
+interface AgentCreatedSkill {
+  id: string
+  agentId: string
+  name: string
+  description: string
+  instructions: string
+  createdAt: number
+}
+
+async function readAgentCreatedSkills(agentId: string): Promise<AgentCreatedSkill[]> {
+  try {
+    const raw = await fs.readFile(AGENT_CREATED_SKILLS_FILE, 'utf-8')
+    const data = JSON.parse(raw)
+    const list = Array.isArray(data) ? data : []
+    return list.filter((s: AgentCreatedSkill) => s.agentId === agentId)
+  } catch {
+    return []
+  }
+}
+
 async function writeProcesses(processes: ProcessesMap): Promise<void> {
   await fs.mkdir(DATA_DIR, { recursive: true })
   await fs.writeFile(PROCESSES_FILE, JSON.stringify(processes, null, 2), 'utf-8')
@@ -95,6 +116,22 @@ export async function getSystemPromptForMember(
   }
   if (member.specMarkdown?.trim()) {
     withRole.push(`Agent spec (follow these instructions):\n${member.specMarkdown.trim()}`)
+  }
+  const customSkills = await readAgentCreatedSkills(member.id.startsWith('mini-jelly-') ? member.id : `mini-jelly-${member.id}`)
+  if (customSkills.length > 0) {
+    const block = customSkills
+      .map(
+        (s) =>
+          `- **${s.name}**: ${s.description || 'No description'}\n  Instructions: ${s.instructions || 'None'}`
+      )
+      .join('\n')
+    withRole.push(
+      `Custom skills you have created (follow when the human asks or when relevant):\n${block}\nYou can also create new skills on your own initiative or when the human asks, using the create_skill action (name, description, instructions).`
+    )
+  } else {
+    withRole.push(
+      `You can create your own skills when the human asks or on your own initiative: use the create_skill action with name, description, and instructions. They will be saved and added to your context.`
+    )
   }
   const allowedIds = member.skills?.length ? member.skills.filter((id) => IMPLEMENTED_IDS.includes(id)) : IMPLEMENTED_IDS
   const toolLabels = allowedIds.map((id) => IMPLEMENTED_SKILLS.find((s) => s.id === id)?.label ?? id).join(', ')

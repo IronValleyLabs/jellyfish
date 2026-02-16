@@ -118,8 +118,10 @@ async function main() {
       try {
         await adapter.sendMessage(payload.conversationId, payload.result.output);
       } catch (err) {
-        console.error('[ChatAgent] Error sending message:', err);
+        console.error('[ChatAgent] Error sending message to', payload.conversationId, err);
       }
+    } else {
+      console.warn('[ChatAgent] No adapter for conversationId', payload.conversationId);
     }
   });
 

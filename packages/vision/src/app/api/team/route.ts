@@ -83,46 +83,93 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     )
   }
-  let body: { templateId: string; jobDescription?: string; goals?: string; accessNotes?: string; kpis?: string; specMarkdown?: string; skills?: string[] }
+  let body: {
+    templateId?: string
+    custom?: boolean
+    name?: string
+    role?: string
+    icon?: string
+    jobDescription?: string
+    goals?: string
+    accessNotes?: string
+    kpis?: string
+    specMarkdown?: string
+    skills?: string[]
+  }
   try {
     body = await request.json()
   } catch {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
-  const { templateId, jobDescription, goals, accessNotes, kpis, specMarkdown, skills } = body
-  if (!templateId || typeof templateId !== 'string') {
-    return Response.json({ error: 'templateId is required' }, { status: 400 })
+  const { templateId, custom, name, role, icon, jobDescription, goals, accessNotes, kpis, specMarkdown, skills } = body
+
+  let member: TeamMember
+  let descriptionForSpawn: string
+
+  if (custom && name && typeof name === 'string' && name.trim()) {
+    const customName = name.trim()
+    const customRole = (typeof role === 'string' ? role.trim() : '') || customName
+    const customIcon = (typeof icon === 'string' ? icon.trim() : '') || '🪼'
+    member = {
+      id: generateId(),
+      templateId: 'custom',
+      name: customName,
+      role: customRole,
+      icon: customIcon.slice(0, 4),
+      jobDescription: typeof jobDescription === 'string' ? jobDescription : undefined,
+      goals: typeof goals === 'string' ? goals : undefined,
+      accessNotes: typeof accessNotes === 'string' ? accessNotes : undefined,
+      kpis: typeof kpis === 'string' ? kpis : undefined,
+      specMarkdown: typeof specMarkdown === 'string' ? specMarkdown : undefined,
+      skills: parseSkills(skills),
+      status: 'active',
+      addedAt: Date.now(),
+      nanoCount: 0,
+      actionsToday: 0,
+      costToday: 0,
+      lastAction: 'Never',
+      displayName: customName,
+      aliases: [],
+      assignedChats: [],
+    }
+    descriptionForSpawn = jobDescription && typeof jobDescription === 'string' ? jobDescription : customRole
+  } else {
+    if (!templateId || typeof templateId !== 'string') {
+      return Response.json({ error: 'templateId is required, or use custom: true with name' }, { status: 400 })
+    }
+    const template = MINI_JELLY_TEMPLATES.find((t) => t.id === templateId)
+    if (!template) {
+      return Response.json({ error: 'Template not found' }, { status: 404 })
+    }
+    member = {
+      id: generateId(),
+      templateId: template.id,
+      name: template.name,
+      role: template.name,
+      icon: template.icon,
+      jobDescription: typeof jobDescription === 'string' ? jobDescription : undefined,
+      goals: typeof goals === 'string' ? goals : undefined,
+      accessNotes: typeof accessNotes === 'string' ? accessNotes : undefined,
+      kpis: typeof kpis === 'string' ? kpis : undefined,
+      specMarkdown: typeof specMarkdown === 'string' ? specMarkdown : undefined,
+      skills: parseSkills(skills),
+      status: 'active',
+      addedAt: Date.now(),
+      nanoCount: 0,
+      actionsToday: 0,
+      costToday: 0,
+      lastAction: 'Never',
+      displayName: template.name,
+      aliases: [],
+      assignedChats: [],
+    }
+    descriptionForSpawn = template.description
   }
-  const template = MINI_JELLY_TEMPLATES.find((t) => t.id === templateId)
-  if (!template) {
-    return Response.json({ error: 'Template not found' }, { status: 404 })
-  }
-  const member: TeamMember = {
-    id: generateId(),
-    templateId: template.id,
-    name: template.name,
-    role: template.name,
-    icon: template.icon,
-    jobDescription: typeof jobDescription === 'string' ? jobDescription : undefined,
-    goals: typeof goals === 'string' ? goals : undefined,
-    accessNotes: typeof accessNotes === 'string' ? accessNotes : undefined,
-    kpis: typeof kpis === 'string' ? kpis : undefined,
-    specMarkdown: typeof specMarkdown === 'string' ? specMarkdown : undefined,
-    skills: parseSkills(skills),
-    status: 'active',
-    addedAt: Date.now(),
-    nanoCount: 0,
-    actionsToday: 0,
-    costToday: 0,
-    lastAction: 'Never',
-    displayName: template.name,
-    aliases: [],
-    assignedChats: [],
-  }
+
   team.push(member)
   await writeTeam(team)
   try {
-    await spawnMiniJelly(member, template.description)
+    await spawnMiniJelly(member, descriptionForSpawn)
   } catch (err) {
     console.error('[POST /api/team] spawn failed:', err)
     team.pop()

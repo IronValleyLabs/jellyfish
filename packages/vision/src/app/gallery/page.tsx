@@ -9,18 +9,33 @@ import { ArrowLeft, Plus, X } from 'lucide-react'
 
 const MAX_TEAM_SIZE = 20
 
+type TemplateModal = {
+  template: MiniJellyTemplate
+  jobDescription: string
+  goals: string
+  kpis: string
+  accessNotes: string
+  specMarkdown: string
+  skills: string[]
+}
+
+type CustomModal = {
+  custom: true
+  name: string
+  role: string
+  icon: string
+  jobDescription: string
+  goals: string
+  kpis: string
+  accessNotes: string
+  specMarkdown: string
+  skills: string[]
+}
+
 export default function Gallery() {
   const router = useRouter()
   const categories = getMiniJellysByCategory()
-  const [modal, setModal] = useState<{
-    template: MiniJellyTemplate
-    jobDescription: string
-    goals: string
-    kpis: string
-    accessNotes: string
-    specMarkdown: string
-    skills: string[]
-  } | null>(null)
+  const [modal, setModal] = useState<TemplateModal | CustomModal | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -35,6 +50,22 @@ export default function Gallery() {
     setError(null)
   }
 
+  const openCustomModal = () => {
+    setModal({
+      custom: true,
+      name: '',
+      role: '',
+      icon: '🪼',
+      jobDescription: '',
+      goals: '',
+      kpis: '',
+      accessNotes: '',
+      specMarkdown: '',
+      skills: [],
+    })
+    setError(null)
+  }
+
   const closeModal = () => {
     if (!submitting) {
       setModal(null)
@@ -44,21 +75,42 @@ export default function Gallery() {
 
   const handleAddToTeam = async () => {
     if (!modal) return
+    if ('custom' in modal && modal.custom) {
+      if (!modal.name.trim()) {
+        setError('Name is required')
+        return
+      }
+    }
     setSubmitting(true)
     setError(null)
     try {
+      const isCustom = 'custom' in modal && modal.custom
+      const body = isCustom
+        ? {
+            custom: true,
+            name: modal.name.trim(),
+            role: modal.role.trim() || undefined,
+            icon: modal.icon.trim() || undefined,
+            jobDescription: modal.jobDescription.trim() || undefined,
+            goals: modal.goals.trim() || undefined,
+            kpis: modal.kpis.trim() || undefined,
+            accessNotes: modal.accessNotes.trim() || undefined,
+            specMarkdown: modal.specMarkdown.trim() || undefined,
+            skills: modal.skills.length ? modal.skills : undefined,
+          }
+        : {
+            templateId: modal.template.id,
+            jobDescription: modal.jobDescription.trim() || undefined,
+            goals: modal.goals.trim() || undefined,
+            kpis: modal.kpis.trim() || undefined,
+            accessNotes: modal.accessNotes.trim() || undefined,
+            specMarkdown: modal.specMarkdown.trim() || undefined,
+            skills: modal.skills.length ? modal.skills : undefined,
+          }
       const res = await fetch('/api/team', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          templateId: modal.template.id,
-          jobDescription: modal.jobDescription.trim() || undefined,
-          goals: modal.goals.trim() || undefined,
-          kpis: modal.kpis.trim() || undefined,
-          accessNotes: modal.accessNotes.trim() || undefined,
-          specMarkdown: modal.specMarkdown.trim() || undefined,
-          skills: modal.skills.length ? modal.skills : undefined,
-        }),
+        body: JSON.stringify(body),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -97,6 +149,35 @@ export default function Gallery() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className="mb-10">
+          <h2 className="text-xl font-semibold text-ocean-100 mb-4">
+            Your own agent
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div
+              className="bg-ocean-800/50 backdrop-blur-sm border border-dashed border-ocean-600 rounded-xl p-6 hover:border-ocean-500 transition-all hover:scale-[1.02] cursor-pointer group"
+              onClick={openCustomModal}
+            >
+              <div className="text-center">
+                <div className="text-5xl mb-3">🪼</div>
+                <h3 className="font-semibold text-ocean-100 mb-2">
+                  Create custom agent
+                </h3>
+                <p className="text-sm text-ocean-400 mb-4">
+                  Define your own agent: name, role, goals and skills from scratch.
+                </p>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); openCustomModal() }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-ocean-500/20 group-hover:bg-ocean-500 text-ocean-300 group-hover:text-white rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create agent
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
         {Object.entries(categories).map(([category, templates]) => (
           <div key={category} className="mb-12">
             <h2 className="text-xl font-semibold text-ocean-100 mb-4">
@@ -138,12 +219,14 @@ export default function Gallery() {
           onClick={closeModal}
         >
           <div
-            className="bg-ocean-900 border border-ocean-700 rounded-xl max-w-md w-full p-6 shadow-xl"
+            className="bg-ocean-900 border border-ocean-700 rounded-xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-ocean-100">
-                Add {modal.template.name} to team
+                {'custom' in modal && modal.custom
+                  ? 'Create custom agent'
+                  : `Add ${modal.template.name} to team`}
               </h3>
               <button
                 type="button"
@@ -153,6 +236,43 @@ export default function Gallery() {
                 <X className="w-5 h-5" />
               </button>
             </div>
+            {'custom' in modal && modal.custom && (
+              <>
+                <p className="text-sm text-ocean-400 mb-2">
+                  <strong>Name</strong> — Display name for this agent (required).
+                </p>
+                <input
+                  value={modal.name}
+                  onChange={(e) =>
+                    setModal((m) => (m && 'custom' in m && m.custom ? { ...m, name: e.target.value } : m))
+                  }
+                  className="w-full px-4 py-3 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm focus:outline-none focus:border-ocean-500 mb-4"
+                  placeholder="e.g. My Assistant"
+                />
+                <p className="text-sm text-ocean-400 mb-2">
+                  <strong>Role</strong> — Short role label (e.g. &quot;Content&quot;, &quot;Finance&quot;). Defaults to name if empty.
+                </p>
+                <input
+                  value={modal.role}
+                  onChange={(e) =>
+                    setModal((m) => (m && 'custom' in m && m.custom ? { ...m, role: e.target.value } : m))
+                  }
+                  className="w-full px-4 py-3 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm focus:outline-none focus:border-ocean-500 mb-4"
+                  placeholder="e.g. Assistant"
+                />
+                <p className="text-sm text-ocean-400 mb-2">
+                  <strong>Icon</strong> — One emoji (e.g. 🪼 🎯 🤖). Optional.
+                </p>
+                <input
+                  value={modal.icon}
+                  onChange={(e) =>
+                    setModal((m) => (m && 'custom' in m && m.custom ? { ...m, icon: e.target.value } : m))
+                  }
+                  className="w-full px-4 py-3 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm focus:outline-none focus:border-ocean-500 mb-4"
+                  placeholder="🪼"
+                />
+              </>
+            )}
             <p className="text-sm text-ocean-400 mb-2">
               <strong>Goals & targets</strong> — What this agent should do (e.g. &quot;Post 3 times per day&quot;). One per line.
             </p>
@@ -256,7 +376,9 @@ export default function Gallery() {
                 disabled={submitting}
                 className="px-4 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
               >
-                {submitting ? 'Adding…' : 'Add to Team'}
+                {submitting
+                  ? ('custom' in modal && modal.custom ? 'Creating…' : 'Adding…')
+                  : ('custom' in modal && modal.custom ? 'Create agent' : 'Add to Team')}
                 <Plus className="w-4 h-4" />
               </button>
             </div>

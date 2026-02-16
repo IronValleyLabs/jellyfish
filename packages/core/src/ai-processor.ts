@@ -9,7 +9,7 @@ const DEFAULT_SYSTEM_PROMPT =
   'You are a helpful, friendly assistant. Reply in a concise and clear way.';
 
 export interface DetectedIntent {
-  intent: 'bash' | 'websearch' | 'draft' | 'response' | 'generate_image' | 'instagram_post' | 'metricool_schedule';
+  intent: 'bash' | 'websearch' | 'draft' | 'response' | 'generate_image' | 'instagram_post' | 'metricool_schedule' | 'create_skill';
   params: {
     command?: string;
     query?: string;
@@ -20,6 +20,9 @@ export interface DetectedIntent {
     imagePathOrUrl?: string;
     content?: string;
     scheduledDate?: string;
+    name?: string;
+    description?: string;
+    instructions?: string;
   };
   usage?: { prompt_tokens: number; completion_tokens: number };
 }
@@ -69,7 +72,7 @@ export class AIProcessor {
         params?: Record<string, string>;
       };
       const allowed =
-        ['bash', 'websearch', 'draft', 'generate_image', 'instagram_post', 'metricool_schedule'] as const;
+        ['bash', 'websearch', 'draft', 'generate_image', 'instagram_post', 'metricool_schedule', 'create_skill'] as const;
       const intent = allowed.includes(parsed.intent as any) ? (parsed.intent as DetectedIntent['intent']) : 'response';
       const params = parsed.params ?? {};
       return {
@@ -84,6 +87,9 @@ export class AIProcessor {
           imagePathOrUrl: params.imagePathOrUrl,
           content: params.content,
           scheduledDate: params.scheduledDate,
+          name: params.name,
+          description: params.description,
+          instructions: params.instructions,
         },
         usage,
       };
