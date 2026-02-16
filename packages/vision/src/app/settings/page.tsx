@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Save, Eye, EyeOff, User } from 'lucide-react'
+import { ArrowLeft, Save, Eye, EyeOff, User, RotateCw, X, Copy } from 'lucide-react'
 
 function MyHumanSection() {
   const [name, setName] = useState('')
@@ -251,6 +251,8 @@ export default function Settings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [showRestartModal, setShowRestartModal] = useState(false)
+  const [restartCopied, setRestartCopied] = useState(false)
 
   useEffect(() => {
     fetch('/api/settings')
@@ -611,6 +613,26 @@ export default function Settings() {
             </div>
           </div>
 
+          {/* Restart Jellyfish */}
+          <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-ocean-100 mb-2 flex items-center gap-2">
+              <RotateCw className="w-5 h-5" />
+              Restart Jellyfish
+            </h2>
+            <p className="text-sm text-ocean-400 mb-4">
+              After changing settings or .env, restart all agents so they pick up the new config.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowRestartModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors"
+              title="Restart Jellyfish"
+            >
+              <RotateCw className="w-4 h-4" />
+              How to restart
+            </button>
+          </div>
+
           {/* APIs & Documentation */}
           <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6">
             <h2 className="text-lg font-semibold text-ocean-100 mb-4">
@@ -665,6 +687,58 @@ export default function Settings() {
           </div>
         </div>
       </main>
+
+      {showRestartModal && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowRestartModal(false)}
+        >
+          <div
+            className="bg-ocean-900 border border-ocean-700 rounded-xl max-w-md w-full p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-ocean-100 flex items-center gap-2">
+                <RotateCw className="w-5 h-5" />
+                Restart Jellyfish
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowRestartModal(false)}
+                className="p-2 hover:bg-ocean-700/50 rounded-lg text-ocean-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-ocean-300 mb-4">
+              To apply config changes or restart all agents:
+            </p>
+            <ol className="list-decimal list-inside text-sm text-ocean-300 space-y-2 mb-4">
+              <li>In the terminal where Jellyfish is running, press <kbd className="px-1.5 py-0.5 bg-ocean-800 rounded text-ocean-200">Ctrl+C</kbd></li>
+              <li>Run the command below:</li>
+            </ol>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-3 py-2 bg-ocean-800 rounded-lg text-ocean-200 text-sm">./start.sh</code>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText('./start.sh').then(() => {
+                    setRestartCopied(true)
+                    setTimeout(() => setRestartCopied(false), 2000)
+                  })
+                }}
+                className="flex items-center gap-2 px-3 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-lg transition-colors text-sm"
+              >
+                <Copy className="w-4 h-4" />
+                {restartCopied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <p className="text-xs text-ocean-500 mt-4">
+              This restarts Memory, Core, Action, Chat and Vision. Mini Jellys are respawned automatically.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

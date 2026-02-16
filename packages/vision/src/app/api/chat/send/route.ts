@@ -2,8 +2,10 @@ import { NextRequest } from 'next/server'
 import { EventBus } from '@jellyfish/shared'
 
 const WEB_PREFIX = 'web_'
-const POLL_MS = 150
-const MAX_WAIT_MS = 35000
+const POLL_MS = 200
+const MAX_WAIT_MS = 55_000
+/** Give Redis time to register our subscriptions before we trigger the pipeline */
+const SUBSCRIBE_SETTLE_MS = 400
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -43,6 +45,7 @@ export async function POST(request: NextRequest) {
 
   eventBus.subscribe('action.completed', onCompleted)
   eventBus.subscribe('action.failed', onFailed)
+  await new Promise((r) => setTimeout(r, SUBSCRIBE_SETTLE_MS))
 
   await eventBus.publish('message.received', {
     platform: 'web',
@@ -63,5 +66,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return Response.json({ error: 'Timeout waiting for response' }, { status: 504 })
+  return Response.json(
+    {
+      error:
+        'Timeout waiting for response. Check that Memory, Core and Chat are running (./start.sh), Redis is up, and OPENROUTER_API_KEY or OPENAI_API_KEY is set in .env.',
+    },
+    { status: 504 }
+  )
 }

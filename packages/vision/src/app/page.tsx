@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
-import { Plus, Activity, Settings, TrendingUp, FileText, MessageSquare, RotateCw, X, Copy } from 'lucide-react'
+import { Plus, Activity, Settings, TrendingUp, FileText, MessageSquare, Menu, X } from 'lucide-react'
 
 interface TeamMember {
   id: string
@@ -74,8 +74,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [redisWarning, setRedisWarning] = useState(false)
-  const [showRestartModal, setShowRestartModal] = useState(false)
-  const [restartCopied, setRestartCopied] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const loadData = useCallback(async () => {
     const [teamRes, metricsRes, statusRes] = await Promise.all([
@@ -152,107 +151,71 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="relative">
               <button
                 type="button"
-                onClick={() => setShowRestartModal(true)}
+                onClick={() => setMenuOpen((o) => !o)}
                 className="flex items-center gap-2 px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors"
-                title="Restart Jellyfish"
+                aria-expanded={menuOpen}
+                aria-haspopup="true"
               >
-                <RotateCw className="w-4 h-4" />
-                Restart
+                {menuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+                Menu
               </button>
-              <Link
-                href="/logs"
-                className="flex items-center gap-2 px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors"
-              >
-                <Activity className="w-4 h-4" />
-                Live Logs
-              </Link>
-              <Link
-                href="/chat"
-                className="flex items-center gap-2 px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors"
-              >
-                <MessageSquare className="w-4 h-4" />
-                Chat
-              </Link>
-              <Link
-                href="/analytics"
-                className="flex items-center gap-2 px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors"
-              >
-                <TrendingUp className="w-4 h-4" />
-                Analytics
-              </Link>
-              <Link
-                href="/settings"
-                className="flex items-center gap-2 px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors"
-              >
-                <Settings className="w-4 h-4" />
-                Settings
-              </Link>
-              <Link
-                href="/gallery"
-                className="flex items-center gap-2 px-4 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-lg transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Add Mini Jelly
-              </Link>
+              {menuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    aria-hidden="true"
+                    onClick={() => setMenuOpen(false)}
+                  />
+                  <nav
+                    className="absolute right-0 top-full mt-2 w-56 py-2 bg-ocean-900 border border-ocean-700 rounded-xl shadow-xl z-20"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <Link
+                      href="/logs"
+                      className="flex items-center gap-3 px-4 py-2.5 text-ocean-200 hover:bg-ocean-800 transition-colors"
+                    >
+                      <Activity className="w-4 h-4 text-ocean-400" />
+                      Live Logs
+                    </Link>
+                    <Link
+                      href="/chat"
+                      className="flex items-center gap-3 px-4 py-2.5 text-ocean-200 hover:bg-ocean-800 transition-colors"
+                    >
+                      <MessageSquare className="w-4 h-4 text-ocean-400" />
+                      Chat
+                    </Link>
+                    <Link
+                      href="/analytics"
+                      className="flex items-center gap-3 px-4 py-2.5 text-ocean-200 hover:bg-ocean-800 transition-colors"
+                    >
+                      <TrendingUp className="w-4 h-4 text-ocean-400" />
+                      Analytics
+                    </Link>
+                    <Link
+                      href="/settings"
+                      className="flex items-center gap-3 px-4 py-2.5 text-ocean-200 hover:bg-ocean-800 transition-colors"
+                    >
+                      <Settings className="w-4 h-4 text-ocean-400" />
+                      Settings
+                    </Link>
+                    <div className="border-t border-ocean-700/50 my-2" />
+                    <Link
+                      href="/gallery"
+                      className="flex items-center gap-3 px-4 py-2.5 text-ocean-100 hover:bg-ocean-800 transition-colors font-medium"
+                    >
+                      <Plus className="w-4 h-4 text-ocean-400" />
+                      Add Mini Jelly
+                    </Link>
+                  </nav>
+                </>
+              )}
             </div>
           </div>
         </div>
       </header>
-
-      {showRestartModal && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={() => setShowRestartModal(false)}
-        >
-          <div
-            className="bg-ocean-900 border border-ocean-700 rounded-xl max-w-md w-full p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-ocean-100 flex items-center gap-2">
-                <RotateCw className="w-5 h-5" />
-                Restart Jellyfish
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowRestartModal(false)}
-                className="p-2 hover:bg-ocean-700/50 rounded-lg text-ocean-400"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-sm text-ocean-300 mb-4">
-              To apply config changes or restart all agents:
-            </p>
-            <ol className="list-decimal list-inside text-sm text-ocean-300 space-y-2 mb-4">
-              <li>In the terminal where Jellyfish is running, press <kbd className="px-1.5 py-0.5 bg-ocean-800 rounded text-ocean-200">Ctrl+C</kbd></li>
-              <li>Run the command below:</li>
-            </ol>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 px-3 py-2 bg-ocean-800 rounded-lg text-ocean-200 text-sm">./start.sh</code>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText('./start.sh').then(() => {
-                    setRestartCopied(true)
-                    setTimeout(() => setRestartCopied(false), 2000)
-                  })
-                }}
-                className="flex items-center gap-2 px-3 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-lg transition-colors text-sm"
-              >
-                <Copy className="w-4 h-4" />
-                {restartCopied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-            <p className="text-xs text-ocean-500 mt-4">
-              This restarts Memory, Core, Action, Chat and Vision. Mini Jellys are respawned automatically.
-            </p>
-          </div>
-        </div>
-      )}
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         {redisWarning && (

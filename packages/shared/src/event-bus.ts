@@ -32,8 +32,13 @@ export class EventBus {
     this.subscriber.on('error', onRedisError);
     this.publisher.on('connect', () => { redisErrorLogged = false; });
 
-    this.subscriber.on('message', (channel, message) => {
-      const event: Event = JSON.parse(message);
+    this.subscriber.on('message', (_channel, message) => {
+      let event: Event;
+      try {
+        event = JSON.parse(message) as Event;
+      } catch {
+        return;
+      }
       const handlers = this.subscriptions.get(event.name as EventName);
       if (handlers) {
         handlers.forEach(handler => handler(event));
