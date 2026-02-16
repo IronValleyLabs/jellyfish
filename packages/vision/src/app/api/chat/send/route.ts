@@ -108,7 +108,8 @@ export async function POST(request: NextRequest) {
   // Direct sync path for dashboard chat: no Redis, same DB as Memory, call LLM from here
   try {
     const dbPath = getDbPath()
-    const Database = require('better-sqlite3') as typeof import('better-sqlite3')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Database = require('better-sqlite3')
     const db = new Database(dbPath)
 
     const tableExists = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='messages'").get()
@@ -128,9 +129,13 @@ export async function POST(request: NextRequest) {
     }
 
     const now = Date.now()
-    db.prepare(
-      'INSERT INTO messages (conversation_id, role, content, timestamp, user_id, platform) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(conversationId, 'user', text, now, 'web-user', 'web')
+    try {
+      db.prepare(
+        'INSERT INTO messages (conversation_id, role, content, timestamp, user_id, platform) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(conversationId, 'user', text, now, 'web-user', 'web')
+    } catch {
+      db.prepare('INSERT INTO messages (conversation_id, role, content, timestamp) VALUES (?, ?, ?, ?)').run(conversationId, 'user', text, now)
+    }
 
     const rows = db
       .prepare(
@@ -142,9 +147,13 @@ export async function POST(request: NextRequest) {
     const systemPrompt = getSystemPrompt()
     const content = await generateResponseSync(systemPrompt, history, text)
 
-    db.prepare(
-      'INSERT INTO messages (conversation_id, role, content, timestamp, user_id, platform, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(conversationId, 'assistant', content, Date.now(), null, 'web', 'core-agent-1')
+    try {
+      db.prepare(
+        'INSERT INTO messages (conversation_id, role, content, timestamp, user_id, platform, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run(conversationId, 'assistant', content, Date.now(), null, 'web', 'core-agent-1')
+    } catch {
+      db.prepare('INSERT INTO messages (conversation_id, role, content, timestamp) VALUES (?, ?, ?, ?)').run(conversationId, 'assistant', content, Date.now())
+    }
 
     db.close()
 

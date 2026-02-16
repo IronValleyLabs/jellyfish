@@ -1,21 +1,18 @@
 import { NextRequest } from 'next/server'
 import path from 'path'
 import fs from 'fs'
+import dotenv from 'dotenv'
 
 const ROOT = path.resolve(process.cwd(), '..', '..')
+const rootEnv = [path.join(process.cwd(), '.env'), path.join(ROOT, '.env')].find((p) => fs.existsSync(p))
+if (rootEnv) dotenv.config({ path: rootEnv })
 
+// Same path as Memory and /api/chat/send so messages written by chat are visible here
 function getDbPath(): string {
-  try {
-    const envPath = path.join(ROOT, '.env')
-    const content = fs.readFileSync(envPath, 'utf-8')
-    const match = content.match(/DATABASE_URL=(.+)/m)
-    const value = match?.[1]?.replace(/^["']|["']$/g, '').trim()
-    if (value && !path.isAbsolute(value)) return path.join(ROOT, value)
-    if (value) return value
-  } catch {
-    // ignore
-  }
-  return path.join(ROOT, 'sqlite.db')
+  const url = process.env.DATABASE_URL?.trim()
+  if (url && path.isAbsolute(url)) return url
+  if (url) return path.join(ROOT, 'packages', 'memory', url)
+  return path.join(ROOT, 'packages', 'memory', 'sqlite.db')
 }
 
 export const dynamic = 'force-dynamic'

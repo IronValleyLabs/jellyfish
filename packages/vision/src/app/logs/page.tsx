@@ -100,8 +100,11 @@ export default function Logs() {
               <h3 className="text-xl font-semibold text-ocean-200 mb-2">
                 No events yet
               </h3>
-              <p className="text-ocean-400">
-                Events will appear here in real-time
+              <p className="text-ocean-400 mb-2">
+                Events stream from Redis (message.received, action.completed, etc.).
+              </p>
+              <p className="text-ocean-500 text-sm">
+                Dashboard chat replies directly without Redis, so it won&apos;t show here. Run <code className="bg-ocean-800/50 px-1 rounded">./start.sh</code> and use Telegram to see live events.
               </p>
             </div>
           ) : (
