@@ -85,6 +85,7 @@ export default function Gallery() {
     setError(null)
     try {
       const isCustom = 'custom' in modal && modal.custom
+      const templateModal = modal as TemplateModal
       const body = isCustom
         ? {
             custom: true,
@@ -99,13 +100,13 @@ export default function Gallery() {
             skills: modal.skills.length ? modal.skills : undefined,
           }
         : {
-            templateId: modal.template.id,
-            jobDescription: modal.jobDescription.trim() || undefined,
-            goals: modal.goals.trim() || undefined,
-            kpis: modal.kpis.trim() || undefined,
-            accessNotes: modal.accessNotes.trim() || undefined,
-            specMarkdown: modal.specMarkdown.trim() || undefined,
-            skills: modal.skills.length ? modal.skills : undefined,
+            templateId: templateModal.template.id,
+            jobDescription: templateModal.jobDescription.trim() || undefined,
+            goals: templateModal.goals.trim() || undefined,
+            kpis: templateModal.kpis.trim() || undefined,
+            accessNotes: templateModal.accessNotes.trim() || undefined,
+            specMarkdown: templateModal.specMarkdown.trim() || undefined,
+            skills: templateModal.skills.length ? templateModal.skills : undefined,
           }
       const res = await fetch('/api/team', {
         method: 'POST',
@@ -226,7 +227,7 @@ export default function Gallery() {
               <h3 className="text-lg font-semibold text-ocean-100">
                 {'custom' in modal && modal.custom
                   ? 'Create custom agent'
-                  : `Add ${modal.template.name} to team`}
+                  : `Add ${(modal as TemplateModal).template.name} to team`}
               </h3>
               <button
                 type="button"
