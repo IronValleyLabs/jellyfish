@@ -1,4 +1,4 @@
-export interface MiniStarfishTemplate {
+export interface MiniJellyTemplate {
   id: string
   name: string
   icon: string
@@ -10,7 +10,7 @@ export interface MiniStarfishTemplate {
   capabilities: string[]
 }
 
-export const MINI_STARFISH_TEMPLATES: MiniStarfishTemplate[] = [
+export const MINI_JELLY_TEMPLATES: MiniJellyTemplate[] = [
   // Marketing & Sales
   {
     id: 'social-media-manager',
@@ -462,8 +462,8 @@ export const MINI_STARFISH_TEMPLATES: MiniStarfishTemplate[] = [
   },
 ]
 
-export function getMiniStarfishByCategory() {
-  const categories = MINI_STARFISH_TEMPLATES.reduce(
+export function getMiniJellysByCategory() {
+  const categories = MINI_JELLY_TEMPLATES.reduce(
     (acc, template) => {
       if (!acc[template.category]) {
         acc[template.category] = []
@@ -471,7 +471,7 @@ export function getMiniStarfishByCategory() {
       acc[template.category].push(template)
       return acc
     },
-    {} as Record<string, MiniStarfishTemplate[]>
+    {} as Record<string, MiniJellyTemplate[]>
   )
   return categories
 }

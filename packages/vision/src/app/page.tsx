@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Plus, Activity, Pause, Settings, TrendingUp } from 'lucide-react'
 
-interface MiniStarfish {
+interface MiniJelly {
   id: string
   name: string
   role: string
@@ -17,7 +17,7 @@ interface MiniStarfish {
 }
 
 export default function Dashboard() {
-  const [miniStarfish] = useState<MiniStarfish[]>([
+  const [miniJellys] = useState<MiniJelly[]>([
     {
       id: '1',
       name: 'Sarah',
@@ -49,21 +49,32 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="text-4xl">🐙</div>
+              <div className="text-4xl">🪼</div>
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-ocean-300 to-ocean-500 bg-clip-text text-transparent">
-                  Starfish Platform
+                  Jellyfish Platform
                 </h1>
-                <p className="text-sm text-ocean-400">Your AI Team Management</p>
+                <p className="text-sm text-ocean-400">
+                  Autonomous AI that flows through your business
+                </p>
               </div>
             </div>
-            <Link
-              href="/gallery"
-              className="flex items-center gap-2 px-4 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-lg transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Add Mini-Starfish
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/settings"
+                className="flex items-center gap-2 px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </Link>
+              <Link
+                href="/gallery"
+                className="flex items-center gap-2 px-4 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Mini Jelly
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -78,9 +89,9 @@ export default function Dashboard() {
                 <Activity className="w-5 h-5 text-ocean-300" />
               </div>
               <div>
-                <p className="text-sm text-ocean-400">Active Mini-Starfish</p>
+                <p className="text-sm text-ocean-400">Active Mini Jellys</p>
                 <p className="text-2xl font-bold text-ocean-100">
-                  {miniStarfish.filter((m) => m.status === 'active').length}
+                  {miniJellys.filter((m) => m.status === 'active').length}
                 </p>
               </div>
             </div>
@@ -93,7 +104,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-sm text-ocean-400">Actions Today</p>
                 <p className="text-2xl font-bold text-ocean-100">
-                  {miniStarfish.reduce((sum, m) => sum + m.actionsToday, 0)}
+                  {miniJellys.reduce((sum, m) => sum + m.actionsToday, 0)}
                 </p>
               </div>
             </div>
@@ -101,12 +112,12 @@ export default function Dashboard() {
           <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-500/20 rounded-lg">
-                <span className="text-lg">🦑</span>
+                <span className="text-lg">🪼</span>
               </div>
               <div>
-                <p className="text-sm text-ocean-400">Total Nano-Starfish</p>
+                <p className="text-sm text-ocean-400">Total Nano Jellys</p>
                 <p className="text-2xl font-bold text-ocean-100">
-                  {miniStarfish.reduce((sum, m) => sum + m.nanoCount, 0)}
+                  {miniJellys.reduce((sum, m) => sum + m.nanoCount, 0)}
                 </p>
               </div>
             </div>
@@ -120,7 +131,7 @@ export default function Dashboard() {
                 <p className="text-sm text-ocean-400">AI Cost Today</p>
                 <p className="text-2xl font-bold text-ocean-100">
                   $
-                  {miniStarfish
+                  {miniJellys
                     .reduce((sum, m) => sum + m.costToday, 0)
                     .toFixed(2)}
                 </p>
@@ -129,17 +140,17 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Mini-Starfish List */}
+        {/* Mini Jelly List */}
         <div>
           <h2 className="text-xl font-semibold text-ocean-100 mb-4">
-            Your Team ({miniStarfish.length}/20)
+            Your Team ({miniJellys.length}/20)
           </h2>
 
-          {miniStarfish.length === 0 ? (
+          {miniJellys.length === 0 ? (
             <div className="text-center py-16 bg-ocean-900/30 backdrop-blur-sm border border-ocean-700/50 rounded-xl">
-              <div className="text-6xl mb-4">🐙</div>
+              <div className="text-6xl mb-4">🪼</div>
               <h3 className="text-xl font-semibold text-ocean-200 mb-2">
-                No Mini-Starfish yet
+                No Mini Jellys yet
               </h3>
               <p className="text-ocean-400 mb-6">
                 Add your first AI employee to get started
@@ -154,7 +165,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-4">
-              {miniStarfish.map((mini) => (
+              {miniJellys.map((mini) => (
                 <div
                   key={mini.id}
                   className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6 hover:border-ocean-500/50 transition-colors"
@@ -186,7 +197,7 @@ export default function Dashboard() {
                           <div>
                             <span className="text-ocean-400">Managing </span>
                             <span className="font-semibold text-ocean-200">
-                              {mini.nanoCount} Nano-Starfish
+                              {mini.nanoCount} Nano Jellys
                             </span>
                           </div>
                           <div>

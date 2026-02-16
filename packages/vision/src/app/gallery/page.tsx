@@ -1,13 +1,11 @@
 'use client'
 
-import {
-  getMiniStarfishByCategory,
-} from '@/lib/mini-starfish-templates'
+import { getMiniJellysByCategory } from '@/lib/mini-jelly-templates'
 import Link from 'next/link'
 import { ArrowLeft, Plus } from 'lucide-react'
 
 export default function Gallery() {
-  const categories = getMiniStarfishByCategory()
+  const categories = getMiniJellysByCategory()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-ocean-950 via-ocean-900 to-ocean-800">
@@ -23,7 +21,7 @@ export default function Gallery() {
             </Link>
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-ocean-300 to-ocean-500 bg-clip-text text-transparent">
-                Mini-Starfish Gallery
+                Mini Jelly Gallery
               </h1>
               <p className="text-sm text-ocean-400">
                 Choose an AI employee for your team

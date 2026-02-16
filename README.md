@@ -1,59 +1,59 @@
-# 🐙 Starfish - Sistema Multi-Agente Autónomo
+# 🪼 Jellyfish
 
-Sistema de agentes de IA verdaderamente autónomo y event-driven, sin cron jobs.
+Autonomous AI workforce platform with distributed intelligence.
 
-## 🚀 Inicio Rápido
+## 🚀 Quick Start
 
-### Requisitos
+### Requirements
 - Node.js 20+
 - pnpm
-- Docker Desktop (para Redis)
+- Docker Desktop (for Redis)
 
-### Instalación
+### Installation
 
-1. Clona el repositorio:
+1. Clone the repository:
 ```bash
 git clone https://github.com/Faunny/starfish.git
 cd starfish
 ```
 
-2. Instala dependencias:
+2. Install dependencies:
 ```bash
 pnpm install
 ```
 
-3. Configura las variables de entorno:
+3. Configure environment variables:
 ```bash
 cp .env.example .env
-# Edita .env con tu TELEGRAM_BOT_TOKEN, OPENROUTER_API_KEY, etc.
+# Edit .env with your TELEGRAM_BOT_TOKEN, OPENROUTER_API_KEY, etc.
 ```
 
-### Ejecutar el sistema
+### Run the system
 
-1. Inicia Redis con Docker Compose:
+1. Start Redis with Docker Compose:
 ```bash
 docker-compose up -d
 ```
 
-2. Inicia los agentes:
+2. Start the agents:
 ```bash
 chmod +x start.sh
 ./start.sh
 ```
 
-3. Para detener los agentes:
+3. To stop the agents:
 ```bash
 ./stop.sh
 ```
 
-4. Para detener Redis:
+4. To stop Redis:
 ```bash
 docker-compose down
 ```
 
-### Arquitectura
+### Architecture
 
-- **Redis**: bus de eventos (Pub/Sub) para comunicación entre agentes.
-- **Memory**: guarda historial en SQLite y publica `context.loaded`.
-- **Core**: recibe contexto, genera respuesta con OpenRouter/Claude y publica `action.completed`.
-- **Chat**: recibe mensajes de Telegram, publica `message.received` y envía respuestas al usuario.
+- **Redis**: event bus (Pub/Sub) for communication between agents.
+- **Memory**: stores history in SQLite and publishes `context.loaded`.
+- **Core**: receives context, generates response with OpenRouter/Claude and publishes `action.completed`.
+- **Chat**: receives Telegram messages, publishes `message.received` and sends responses to the user.

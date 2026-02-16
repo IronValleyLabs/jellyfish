@@ -6,7 +6,7 @@ if [ -f .env ]; then
   set +a
   echo "✅ Variables de .env cargadas"
 fi
-echo "🐙 Iniciando Starfish..."
+echo "⭐ Iniciando Starfish..."
 echo ""
 echo "✅ Compilando paquetes..."
 pnpm build
