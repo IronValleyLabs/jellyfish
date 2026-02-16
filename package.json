@@ -1,0 +1,13 @@
+{
+  "name": "starfish-monorepo",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --filter './packages/*' build",
+    "dev": "pnpm --filter './packages/*' dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2",
+    "@types/node": "^20.11.20"
+  }
+}

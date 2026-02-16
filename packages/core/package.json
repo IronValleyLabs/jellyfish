@@ -1,0 +1,17 @@
+{
+  "name": "@starfish/core",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc && node dist/index.js"
+  },
+  "dependencies": {
+    "@starfish/shared": "workspace:*",
+    "openai": "^4.28.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
