@@ -8,7 +8,7 @@
 
 ## Requirements
 
-- **Node.js 18 or 20** (20 recommended; Node 21+ is not supported — Memory uses `better-sqlite3`, which only builds on Node 18 or 20)
+- **Node.js 18+** (18, 20, 22 supported; Memory uses `better-sqlite3` v12)
 - **pnpm**
 - **Redis** — local (`redis-server`) or [Redis Cloud](https://redis.com/try-free/) (free tier, no Docker needed)
 
@@ -36,7 +36,7 @@ chmod +x install.sh
 The script will:
 
 - Detect OS (macOS, Linux, WSL)
-- Check Node.js (18 or 20 only; rejects 21+ and suggests `nvm use 20`) and install pnpm if needed
+- Check Node.js 18+ and install pnpm if needed
 - Clone or use existing repo, run `pnpm install`
 - Configure Redis (Redis Cloud or local), LLM (OpenRouter or OpenAI), and optional Telegram
 - Build and start Jellyfish, then open the dashboard in your browser
@@ -171,14 +171,4 @@ This builds packages and starts:
 
 ## Node version
 
-Use **Node 18 or 20** only. Node 21 and 22 (and newer) are not supported because the Memory agent depends on `better-sqlite3`, which does not build on those versions.
-
-The repo includes an **`.nvmrc`** with `20`. If you use nvm:
-
-```bash
-nvm install 20
-nvm use
-# or just: nvm use   (picks up .nvmrc)
-```
-
-Both `install.sh` and `start.sh` check for Node 21+ and exit with instructions to switch to Node 20.
+**Node 18 or newer** (18, 20, 22 are supported). The repo includes an **`.nvmrc`** with `20` if you use nvm: run `nvm use` in the project directory.
