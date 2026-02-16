@@ -1,11 +1,18 @@
+import path from 'path'
+import fs from 'fs'
 import { NextRequest } from 'next/server'
 import { EventBus } from '@jellyfish/shared'
+import dotenv from 'dotenv'
+
+// Use same .env as start.sh so Redis and env match Memory/Core/Chat
+const rootEnv = [path.join(process.cwd(), '.env'), path.join(process.cwd(), '..', '..', '.env')].find((p) => fs.existsSync(p))
+if (rootEnv) dotenv.config({ path: rootEnv })
 
 const WEB_PREFIX = 'web_'
 const POLL_MS = 200
 const MAX_WAIT_MS = 55_000
 /** Give Redis time to register our subscriptions before we trigger the pipeline */
-const SUBSCRIBE_SETTLE_MS = 400
+const SUBSCRIBE_SETTLE_MS = 500
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -34,12 +41,14 @@ export async function POST(request: NextRequest) {
     const p = event.payload
     if (p?.conversationId === conversationId && p?.result?.output) {
       result.output = p.result.output
+      console.log('[Chat/send] Received action.completed for', conversationId)
     }
   }
   const onFailed = (event: { payload?: { conversationId?: string; error?: string } }) => {
     const p = event.payload
     if (p?.conversationId === conversationId && p?.error) {
       result.error = p.error
+      console.log('[Chat/send] Received action.failed for', conversationId, p.error)
     }
   }
 
@@ -47,6 +56,7 @@ export async function POST(request: NextRequest) {
   eventBus.subscribe('action.failed', onFailed)
   await new Promise((r) => setTimeout(r, SUBSCRIBE_SETTLE_MS))
 
+  console.log('[Chat/send] Publishing message.received', conversationId, 'text length:', text.length)
   await eventBus.publish('message.received', {
     platform: 'web',
     userId: 'web-user',
@@ -66,6 +76,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  console.warn('[Chat/send] Timeout for', conversationId, '- no action.completed/action.failed received. Check Memory, Core and Chat processes and Redis.')
   return Response.json(
     {
       error:

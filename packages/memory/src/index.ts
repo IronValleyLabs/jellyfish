@@ -58,6 +58,7 @@ class MemoryAgent {
     this.eventBus.subscribe('message.received', async (event) => {
       const payload = event.payload as MessageReceivedPayload;
       const text = (payload.text || '').trim();
+      console.log('[MemoryAgent] message.received', payload.conversationId, 'text length:', text.length);
 
       const assignMatch = text.match(/^\/assign(?:\s+(.+))?$/i);
       if (assignMatch) {
@@ -91,33 +92,46 @@ class MemoryAgent {
         return;
       }
 
-      await this.db.insert(schema.messages).values({
-        conversationId: payload.conversationId,
-        role: 'user',
-        content: payload.text,
-        timestamp: new Date(event.timestamp),
-        userId: payload.userId ?? null,
-        platform: payload.platform ?? null,
-      });
-      const history = await this.db.query.messages.findMany({
-        where: eq(schema.messages.conversationId, payload.conversationId),
-        orderBy: [desc(schema.messages.timestamp)],
-        limit: 20,
-      });
-      const assignments = await readAssignments();
-      const assignedAgentId = assignments[payload.conversationId] ?? null;
-      const targetAgentId = payload.targetAgentId ?? assignedAgentId ?? undefined;
-      await this.eventBus.publish(
-        'context.loaded',
-        {
+      try {
+        await this.db.insert(schema.messages).values({
           conversationId: payload.conversationId,
-          history: history.reverse().map((h) => ({ role: h.role, content: h.content })),
-          currentMessage: payload.text,
-          targetAgentId: targetAgentId || undefined,
-          assignedAgentId: assignedAgentId || undefined,
-        },
-        event.correlationId
-      );
+          role: 'user',
+          content: payload.text,
+          timestamp: new Date(event.timestamp),
+          userId: payload.userId ?? null,
+          platform: payload.platform ?? null,
+        });
+        const history = await this.db.query.messages.findMany({
+          where: eq(schema.messages.conversationId, payload.conversationId),
+          orderBy: [desc(schema.messages.timestamp)],
+          limit: 20,
+        });
+        const assignments = await readAssignments();
+        const assignedAgentId = assignments[payload.conversationId] ?? null;
+        const targetAgentId = payload.targetAgentId ?? assignedAgentId ?? undefined;
+        console.log('[MemoryAgent] Publishing context.loaded', payload.conversationId, 'targetAgentId:', targetAgentId ?? 'none');
+        await this.eventBus.publish(
+          'context.loaded',
+          {
+            conversationId: payload.conversationId,
+            history: history.reverse().map((h) => ({ role: h.role, content: h.content })),
+            currentMessage: payload.text,
+            targetAgentId: targetAgentId || undefined,
+            assignedAgentId: assignedAgentId || undefined,
+          },
+          event.correlationId
+        );
+      } catch (err) {
+        console.error('[MemoryAgent] Error processing message.received:', err);
+        await this.eventBus.publish(
+          'action.failed',
+          {
+            conversationId: payload.conversationId,
+            error: err instanceof Error ? err.message : String(err),
+          },
+          event.correlationId
+        );
+      }
     });
     this.eventBus.subscribe('conversation.unassigned', async (event) => {
       const payload = event.payload as { conversationId?: string };

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
-import { Plus, Activity, Settings, TrendingUp, FileText, MessageSquare, Menu, X } from 'lucide-react'
+import { Plus, Activity, Settings, TrendingUp, FileText, MessageSquare, ChevronRight, ChevronLeft } from 'lucide-react'
 
 interface TeamMember {
   id: string
@@ -74,7 +74,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [redisWarning, setRedisWarning] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const loadData = useCallback(async () => {
     const [teamRes, metricsRes, statusRes] = await Promise.all([
@@ -135,11 +135,13 @@ export default function Dashboard() {
   const totalNano = team.reduce((sum, m) => sum + m.nanoCount, 0) + coreMetrics.nanoCount
   const totalCost = team.reduce((sum, m) => sum + m.costToday, 0) + coreMetrics.costToday
 
+  const sidebarW = sidebarCollapsed ? 'w-14' : 'w-52'
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-ocean-950 via-ocean-900 to-ocean-800">
-      <header className="border-b border-ocean-700/50 backdrop-blur-sm bg-ocean-900/50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-ocean-950 via-ocean-900 to-ocean-800 flex">
+      <div className={`flex-1 min-w-0 transition-[margin] duration-200 ${sidebarCollapsed ? 'mr-14' : 'mr-52'}`}>
+        <header className="border-b border-ocean-700/50 backdrop-blur-sm bg-ocean-900/50">
+          <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex items-center gap-3">
               <div className="text-4xl">🪼</div>
               <div>
@@ -151,73 +153,10 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setMenuOpen((o) => !o)}
-                className="flex items-center gap-2 px-4 py-2 bg-ocean-700/50 hover:bg-ocean-700 text-ocean-300 rounded-lg transition-colors"
-                aria-expanded={menuOpen}
-                aria-haspopup="true"
-              >
-                {menuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-                Menu
-              </button>
-              {menuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    aria-hidden="true"
-                    onClick={() => setMenuOpen(false)}
-                  />
-                  <nav
-                    className="absolute right-0 top-full mt-2 w-56 py-2 bg-ocean-900 border border-ocean-700 rounded-xl shadow-xl z-20"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <Link
-                      href="/logs"
-                      className="flex items-center gap-3 px-4 py-2.5 text-ocean-200 hover:bg-ocean-800 transition-colors"
-                    >
-                      <Activity className="w-4 h-4 text-ocean-400" />
-                      Live Logs
-                    </Link>
-                    <Link
-                      href="/chat"
-                      className="flex items-center gap-3 px-4 py-2.5 text-ocean-200 hover:bg-ocean-800 transition-colors"
-                    >
-                      <MessageSquare className="w-4 h-4 text-ocean-400" />
-                      Chat
-                    </Link>
-                    <Link
-                      href="/analytics"
-                      className="flex items-center gap-3 px-4 py-2.5 text-ocean-200 hover:bg-ocean-800 transition-colors"
-                    >
-                      <TrendingUp className="w-4 h-4 text-ocean-400" />
-                      Analytics
-                    </Link>
-                    <Link
-                      href="/settings"
-                      className="flex items-center gap-3 px-4 py-2.5 text-ocean-200 hover:bg-ocean-800 transition-colors"
-                    >
-                      <Settings className="w-4 h-4 text-ocean-400" />
-                      Settings
-                    </Link>
-                    <div className="border-t border-ocean-700/50 my-2" />
-                    <Link
-                      href="/gallery"
-                      className="flex items-center gap-3 px-4 py-2.5 text-ocean-100 hover:bg-ocean-800 transition-colors font-medium"
-                    >
-                      <Plus className="w-4 h-4 text-ocean-400" />
-                      Add Mini Jelly
-                    </Link>
-                  </nav>
-                </>
-              )}
-            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+        <main className="max-w-7xl mx-auto px-6 py-8">
         {redisWarning && (
           <div className="mb-6 px-4 py-3 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-200 text-sm">
             Redis is not reachable. Metrics and live status may be missing. Start <code className="bg-black/20 px-1 rounded">redis-server</code> or use Redis Cloud and set REDIS_HOST in .env, then restart.
@@ -423,7 +362,69 @@ export default function Dashboard() {
             </div>
           </>
         )}
-      </main>
+        </main>
+      </div>
+
+      <aside
+        className={`fixed top-0 right-0 h-full ${sidebarW} bg-ocean-900/95 backdrop-blur-sm border-l border-ocean-700/50 flex flex-col transition-[width] duration-200 z-30`}
+        aria-label="Navigation"
+      >
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed((c) => !c)}
+          className="flex items-center justify-center w-full py-3 border-b border-ocean-700/50 text-ocean-400 hover:bg-ocean-800/50 hover:text-ocean-200 transition-colors"
+          title={sidebarCollapsed ? 'Expand menu' : 'Collapse menu'}
+        >
+          {sidebarCollapsed ? (
+            <ChevronLeft className="w-5 h-5" />
+          ) : (
+            <ChevronRight className="w-5 h-5" />
+          )}
+        </button>
+        <nav className="flex-1 py-4 flex flex-col gap-1">
+          <Link
+            href="/logs"
+            className="flex items-center gap-3 px-4 py-2.5 text-ocean-200 hover:bg-ocean-800/80 transition-colors"
+            title="Live Logs"
+          >
+            <Activity className="w-5 h-5 text-ocean-400 shrink-0" />
+            {!sidebarCollapsed && <span>Live Logs</span>}
+          </Link>
+          <Link
+            href="/chat"
+            className="flex items-center gap-3 px-4 py-2.5 text-ocean-200 hover:bg-ocean-800/80 transition-colors"
+            title="Chat"
+          >
+            <MessageSquare className="w-5 h-5 text-ocean-400 shrink-0" />
+            {!sidebarCollapsed && <span>Chat</span>}
+          </Link>
+          <Link
+            href="/analytics"
+            className="flex items-center gap-3 px-4 py-2.5 text-ocean-200 hover:bg-ocean-800/80 transition-colors"
+            title="Analytics"
+          >
+            <TrendingUp className="w-5 h-5 text-ocean-400 shrink-0" />
+            {!sidebarCollapsed && <span>Analytics</span>}
+          </Link>
+          <Link
+            href="/settings"
+            className="flex items-center gap-3 px-4 py-2.5 text-ocean-200 hover:bg-ocean-800/80 transition-colors"
+            title="Settings"
+          >
+            <Settings className="w-5 h-5 text-ocean-400 shrink-0" />
+            {!sidebarCollapsed && <span>Settings</span>}
+          </Link>
+          <div className="border-t border-ocean-700/50 my-2" />
+          <Link
+            href="/gallery"
+            className="flex items-center gap-3 px-4 py-2.5 text-ocean-100 hover:bg-ocean-800/80 transition-colors font-medium"
+            title="Add Mini Jelly"
+          >
+            <Plus className="w-5 h-5 text-ocean-400 shrink-0" />
+            {!sidebarCollapsed && <span>Add Mini Jelly</span>}
+          </Link>
+        </nav>
+      </aside>
     </div>
   )
 }

@@ -42,6 +42,7 @@ class CoreAgent {
       const target = payload.targetAgentId ?? payload.assignedAgentId ?? null;
       if (target != null && target !== this.agentId) return;
       if (target == null && miniJellyId) return;
+      console.log('[CoreAgent] Handling context.loaded', payload.conversationId, 'agentId:', this.agentId);
       try {
         const { intent, params, usage: intentUsage } = await this.aiProcessor.detectIntent(
           payload.currentMessage,
@@ -70,6 +71,7 @@ class CoreAgent {
             );
             await this.metrics.addCost(this.agentId, cost);
           }
+          console.log('[CoreAgent] Publishing action.completed', payload.conversationId);
           await this.eventBus.publish(
             'action.completed',
             {
