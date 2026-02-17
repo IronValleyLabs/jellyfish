@@ -63,21 +63,25 @@ function getLLMConfig(): { apiKey: string; baseURL: string; model: string; heade
   throw new Error('Set OPENROUTER_API_KEY or OPENAI_API_KEY in .env')
 }
 
+const MAX_HISTORY_MESSAGES = 8
+const MAX_RESPONSE_TOKENS = 280
+
 async function generateResponseSync(
   systemPrompt: string,
   history: Array<{ role: string; content: string }>,
   currentMessage: string
 ): Promise<string> {
   const { baseURL, model, headers } = getLLMConfig()
+  const recent = history.slice(-MAX_HISTORY_MESSAGES)
   const messages = [
-    { role: 'system' as const, content: systemPrompt },
-    ...history.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
+    { role: 'system' as const, content: systemPrompt + '\n\nReply concisely. Do not repeat or paraphrase the user\'s message.' },
+    ...recent.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
     { role: 'user' as const, content: currentMessage },
   ]
   const res = await fetch(`${baseURL}/chat/completions`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 500 }),
+    body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: MAX_RESPONSE_TOKENS }),
   })
   if (!res.ok) {
     const err = await res.text()
@@ -88,8 +92,28 @@ async function generateResponseSync(
   return content ?? 'Sorry, I could not generate a response.'
 }
 
+const UNIFIED_CONVERSATION_ID = WEB_PREFIX + 'dashboard'
+
+/** Send reply to Telegram for unified chat (dashboard + main Telegram user). */
+async function sendToTelegramIfConfigured(conversationId: string, text: string): Promise<void> {
+  if (conversationId !== UNIFIED_CONVERSATION_ID) return
+  const token = process.env.TELEGRAM_BOT_TOKEN?.trim()
+  const chatId = process.env.TELEGRAM_MAIN_USER_ID?.trim()
+  if (!token || !chatId) return
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    })
+    if (!res.ok) console.error('[Chat/send] Telegram push failed:', await res.text())
+  } catch (e) {
+    console.error('[Chat/send] Telegram push error:', e)
+  }
+}
+
 export async function POST(request: NextRequest) {
-  let body: { text?: string; conversationId?: string }
+  let body: { text?: string; conversationId?: string; platform?: string; userId?: string }
   try {
     body = await request.json()
   } catch {
@@ -97,9 +121,11 @@ export async function POST(request: NextRequest) {
   }
   const text = typeof body.text === 'string' ? body.text.trim() : ''
   const conversationId =
-    typeof body.conversationId === 'string' && body.conversationId.startsWith(WEB_PREFIX)
+    typeof body.conversationId === 'string' && (body.conversationId.startsWith(WEB_PREFIX) || body.conversationId === UNIFIED_CONVERSATION_ID)
       ? body.conversationId
-      : WEB_PREFIX + 'dashboard'
+      : UNIFIED_CONVERSATION_ID
+  const platform = typeof body.platform === 'string' ? body.platform : 'web'
+  const userId = typeof body.userId === 'string' ? body.userId : 'web-user'
 
   if (!text) {
     return Response.json({ error: 'text is required' }, { status: 400 })
@@ -132,14 +158,14 @@ export async function POST(request: NextRequest) {
     try {
       db.prepare(
         'INSERT INTO messages (conversation_id, role, content, timestamp, user_id, platform) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(conversationId, 'user', text, now, 'web-user', 'web')
+      ).run(conversationId, 'user', text, now, userId, platform)
     } catch {
       db.prepare('INSERT INTO messages (conversation_id, role, content, timestamp) VALUES (?, ?, ?, ?)').run(conversationId, 'user', text, now)
     }
 
     const rows = db
       .prepare(
-        'SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY timestamp DESC LIMIT 20'
+        `SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY timestamp DESC LIMIT ${MAX_HISTORY_MESSAGES}`
       )
       .all(conversationId) as Array<{ role: string; content: string }>
     const history = rows.reverse()
@@ -150,13 +176,14 @@ export async function POST(request: NextRequest) {
     try {
       db.prepare(
         'INSERT INTO messages (conversation_id, role, content, timestamp, user_id, platform, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).run(conversationId, 'assistant', content, Date.now(), null, 'web', 'core-agent-1')
+      ).run(conversationId, 'assistant', content, Date.now(), null, platform, 'core-agent-1')
     } catch {
       db.prepare('INSERT INTO messages (conversation_id, role, content, timestamp) VALUES (?, ?, ?, ?)').run(conversationId, 'assistant', content, Date.now())
     }
 
     db.close()
 
+    await sendToTelegramIfConfigured(conversationId, content)
     return Response.json({ output: content })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

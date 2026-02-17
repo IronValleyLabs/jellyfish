@@ -44,11 +44,12 @@ export function createTelegramAdapter(): ChatAdapter | null {
     async sendMessage(conversationId: string, text: string) {
       if (!conversationId.startsWith(PREFIX)) return;
       const userId = conversationId.slice(PREFIX.length);
+      const chatId = /^\d+$/.test(userId) ? Number(userId) : userId;
       try {
-        await bot.telegram.sendMessage(userId, text);
+        await bot.telegram.sendMessage(chatId, text);
         console.log('[TelegramAdapter] Sent to', conversationId);
       } catch (err) {
-        console.error('[TelegramAdapter] sendMessage failed:', err);
+        console.error('[TelegramAdapter] sendMessage failed for', conversationId, err);
         throw err;
       }
     },

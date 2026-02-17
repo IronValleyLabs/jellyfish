@@ -15,6 +15,8 @@ dotenv.config();
 
 const RESET_REGEX = /^\/reset\s*$/i;
 const WEBHOOK_PORT = parseInt(process.env.CHAT_WEBHOOK_PORT ?? '3010', 10);
+const UNIFIED_CONVERSATION_ID = 'web_dashboard';
+const VISION_CHAT_URL = (process.env.VISION_CHAT_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 
 function createMessageHandler(
   eventBus: EventBus,
@@ -44,6 +46,7 @@ function createMessageHandler(
       }
     }
 
+    console.log('[ChatAgent] Publishing message.received for', conversationId);
     await eventBus.publish('message.received', {
       platform,
       userId,
@@ -101,6 +104,31 @@ async function main() {
         });
         return;
       }
+      // Unified chat: main Telegram user shares same thread as dashboard (no Redis)
+      const mainTelegramId = process.env.TELEGRAM_MAIN_USER_ID?.trim();
+      if (adapter.platform === 'telegram' && mainTelegramId && String(msg.userId) === mainTelegramId) {
+        try {
+          const res = await fetch(`${VISION_CHAT_URL}/api/chat/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: msg.text,
+              conversationId: UNIFIED_CONVERSATION_ID,
+              platform: 'telegram',
+              userId: msg.userId,
+            }),
+          });
+          const data = (await res.json().catch(() => ({}))) as { output?: string; error?: string };
+          const output = res.ok && typeof data.output === 'string'
+            ? data.output
+            : (data.error ?? 'Error processing message.');
+          await adapter.sendMessage(msg.conversationId, output);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          await adapter.sendMessage(msg.conversationId, `Error: ${message}`);
+        }
+        return;
+      }
       await handler(msg);
     });
     await adapter.start();
@@ -113,15 +141,17 @@ async function main() {
   eventBus.subscribe('action.completed', async (event) => {
     const payload = event.payload as { conversationId?: string; result?: { output?: string } };
     if (!payload.conversationId || !payload.result?.output) return;
-    const adapter = adapters.find((a) => payload.conversationId!.startsWith(a.conversationIdPrefix));
+    const cid = payload.conversationId;
+    const adapter = adapters.find((a) => cid.startsWith(a.conversationIdPrefix));
     if (adapter) {
       try {
-        await adapter.sendMessage(payload.conversationId, payload.result.output);
+        console.log('[ChatAgent] Sending reply to', cid, '(', adapter.platform, ')');
+        await adapter.sendMessage(cid, payload.result.output);
       } catch (err) {
-        console.error('[ChatAgent] Error sending message to', payload.conversationId, err);
+        console.error('[ChatAgent] Error sending message to', cid, err);
       }
     } else {
-      console.warn('[ChatAgent] No adapter for conversationId', payload.conversationId);
+      console.warn('[ChatAgent] No adapter for conversationId', cid);
     }
   });
 
