@@ -300,7 +300,8 @@ export default function Settings() {
           : (data.message ?? 'Settings saved. Restart agents to apply changes.')
         setMessage({ type: 'success', text: msg })
       } else {
-        setMessage({ type: 'error', text: data.error ?? 'Failed to save settings' })
+        const errMsg = data.error ?? 'Failed to save settings'
+        setMessage({ type: 'error', text: typeof errMsg === 'string' ? errMsg : 'Error saving' })
       }
     } catch {
       setMessage({ type: 'error', text: 'Failed to save settings' })

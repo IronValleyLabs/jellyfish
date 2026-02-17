@@ -46,7 +46,25 @@ function getByKey(lines: { key: string; value: string }[], key: string): string 
 export async function GET() {
   try {
     const envPath = getEnvPath()
-    const content = await fs.readFile(envPath, 'utf-8')
+    let content: string
+    try {
+      content = await fs.readFile(envPath, 'utf-8')
+    } catch (e: unknown) {
+      const code = (e as NodeJS.ErrnoException)?.code
+      if (code === 'ENOENT') {
+        return Response.json({
+          telegramToken: '',
+          telegramMainUserId: '',
+          llmProvider: 'openrouter',
+          openrouterKey: '',
+          openaiKey: '',
+          aiModel: 'anthropic/claude-3.5-sonnet',
+          redisHost: 'localhost',
+          appMode: !!process.env.JELLYFISH_CONFIG_DIR,
+        })
+      }
+      throw e
+    }
     const lines = parseEnvLines(content)
 
     const telegramToken = getByKey(lines, 'TELEGRAM_BOT_TOKEN')
@@ -93,24 +111,30 @@ export async function POST(request: NextRequest) {
   }
 
   const { telegramToken, telegramMainUserId, llmProvider, openrouterKey, openaiKey, aiModel, redisHost } = body
-  if (typeof aiModel !== 'string' || !aiModel.trim()) {
-    return Response.json({ error: 'aiModel is required' }, { status: 400 })
-  }
-  if (typeof redisHost !== 'string' || !redisHost.trim()) {
-    return Response.json({ error: 'redisHost is required' }, { status: 400 })
-  }
   const provider = (llmProvider ?? '').trim().toLowerCase()
   if (provider && provider !== 'openrouter' && provider !== 'openai') {
     return Response.json({ error: 'llmProvider must be openrouter or openai' }, { status: 400 })
   }
 
   const envPath = getEnvPath()
-  let content: string
+  const configDir = process.env.JELLYFISH_CONFIG_DIR
+  if (configDir) {
+    try {
+      await fs.mkdir(configDir, { recursive: true })
+    } catch (e) {
+      console.error('[POST /api/settings] mkdir config', e)
+    }
+  }
+
+  let content = ''
   try {
     content = await fs.readFile(envPath, 'utf-8')
   } catch (err) {
-    console.error('[POST /api/settings] read .env', err)
-    return Response.json({ error: 'Could not read .env' }, { status: 500 })
+    const code = (err as NodeJS.ErrnoException)?.code
+    if (code !== 'ENOENT') {
+      console.error('[POST /api/settings] read .env', err)
+      return Response.json({ error: 'Could not read .env' }, { status: 500 })
+    }
   }
 
   const lines = parseEnvLines(content)
@@ -119,15 +143,17 @@ export async function POST(request: NextRequest) {
     if (typeof v !== 'string' || !v.trim() || isMask(v.trim())) return current
     return v.trim().replace(/\r?\n/g, '')
   }
-  const safe = (s: string) => s.trim().replace(/\r?\n/g, '')
+  const safe = (s: string) => (typeof s === 'string' ? s : '').trim().replace(/\r?\n/g, '')
+  const effectiveAiModel = (typeof aiModel === 'string' && aiModel.trim()) ? aiModel.trim() : (getByKey(lines, 'AI_MODEL') || 'anthropic/claude-3.5-sonnet')
+  const effectiveRedisHost = (typeof redisHost === 'string' && redisHost.trim()) ? redisHost.trim() : (getByKey(lines, 'REDIS_HOST') || 'localhost')
   const updates: Record<string, string> = {
     TELEGRAM_BOT_TOKEN: useToken(telegramToken, getByKey(lines, 'TELEGRAM_BOT_TOKEN')),
     TELEGRAM_MAIN_USER_ID: typeof telegramMainUserId === 'string' ? telegramMainUserId.trim() : getByKey(lines, 'TELEGRAM_MAIN_USER_ID'),
     LLM_PROVIDER: provider ? provider : (getByKey(lines, 'LLM_PROVIDER') || 'openrouter'),
     OPENROUTER_API_KEY: useToken(openrouterKey, getByKey(lines, 'OPENROUTER_API_KEY')),
     OPENAI_API_KEY: useToken(openaiKey, getByKey(lines, 'OPENAI_API_KEY')),
-    AI_MODEL: safe(aiModel),
-    REDIS_HOST: safe(redisHost),
+    AI_MODEL: effectiveAiModel,
+    REDIS_HOST: effectiveRedisHost,
   }
 
   const keyToUpdate = new Set(ALLOWED_KEYS)
@@ -161,8 +187,9 @@ export async function POST(request: NextRequest) {
   try {
     await fs.writeFile(envPath, newLines.join('\n'), 'utf-8')
   } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Could not write .env'
     console.error('[POST /api/settings] write .env', err)
-    return Response.json({ error: 'Could not write .env' }, { status: 500 })
+    return Response.json({ error: msg }, { status: 500 })
   }
 
   return Response.json({

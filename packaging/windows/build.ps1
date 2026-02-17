@@ -47,6 +47,20 @@ if (-not $env:CI) {
     pnpm --filter @jellyfish/vision run build
 }
 
+# 3b. Next standalone does not include .next/static — copy it so the dashboard loads
+$visionStandalone = Join-Path $REPO_ROOT "packages\vision\.next\standalone"
+$visionStaticSrc = Join-Path $REPO_ROOT "packages\vision\.next\static"
+$visionStaticDest = Join-Path $visionStandalone "packages\vision\.next\static"
+if (Test-Path $visionStandalone) {
+    Write-Host "Copying static assets into Vision standalone..."
+    New-Item -ItemType Directory -Force -Path (Split-Path $visionStaticDest) | Out-Null
+    Copy-Item -Path $visionStaticSrc -Destination $visionStaticDest -Recurse -Force
+    $visionPublic = Join-Path $REPO_ROOT "packages\vision\public"
+    if (Test-Path $visionPublic) {
+        Copy-Item -Path $visionPublic -Destination (Join-Path $visionStandalone "packages\vision\public") -Recurse -Force
+    }
+}
+
 # 4. Copy app (use robocopy to avoid long-path and symlink issues on Windows)
 Write-Host "Copying app (robocopy)..."
 $appDest = Join-Path $BUNDLE "app"
@@ -63,10 +77,23 @@ Write-Host "Robocopy done (exit $LASTEXITCODE)"
 $packagingInApp = Join-Path $appDest "packaging"
 if (Test-Path $packagingInApp) { Remove-Item -Recurse -Force $packagingInApp }
 
-# 5. Launcher
+# 4b. Copy Vision standalone (self-contained dashboard, no pnpm symlinks)
+if (Test-Path $visionStandalone) {
+    $visionStandaloneDest = Join-Path $BUNDLE "vision-standalone"
+    Copy-Item -Path $visionStandalone -Destination $visionStandaloneDest -Recurse -Force
+    Write-Host "Vision standalone copied."
+}
+
+# 5. Launcher + version (for update check)
 $launcherDest = Join-Path $BUNDLE "launcher"
 New-Item -ItemType Directory -Force -Path $launcherDest | Out-Null
 Copy-Item (Join-Path $REPO_ROOT "packaging\launcher\index.js") $launcherDest
+$versionSrc = Join-Path $REPO_ROOT "packaging\version.txt"
+if (Test-Path $versionSrc) {
+    Copy-Item $versionSrc $BUNDLE
+} else {
+    Set-Content -Path (Join-Path $BUNDLE "version.txt") -Value "1.0.0" -Encoding ASCII
+}
 
 # 6. Run script
 $bat = @"

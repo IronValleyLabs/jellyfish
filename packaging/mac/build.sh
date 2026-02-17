@@ -44,16 +44,23 @@ else
   echo "No packaging/resources/mac/redis-server — app will use Redis from .env (e.g. Redis Cloud)."
 fi
 
-# 3. Build the project (including Vision/Next.js so the app can open the dashboard)
+# 3. Build the project (Vision uses Next.js standalone so the bundle does not rely on pnpm symlinks)
 echo "Installing dependencies and building..."
 pnpm install
 pnpm build
 pnpm --filter @jellyfish/vision run build
 
-# 4. Copy app (project) into bundle (exclude .git and packaging to save space)
+# 3b. Next standalone does not include .next/static — copy it so the dashboard loads
+echo "Copying static assets into Vision standalone..."
+cp -r "$REPO_ROOT/packages/vision/.next/static" "$REPO_ROOT/packages/vision/.next/standalone/packages/vision/.next/"
+[ -d "$REPO_ROOT/packages/vision/public" ] && cp -r "$REPO_ROOT/packages/vision/public" "$REPO_ROOT/packages/vision/.next/standalone/packages/vision/"
+
+# 4. Copy app (project) into bundle for memory, core, action, chat
 echo "Copying app..."
 rsync -a --exclude='.git' --exclude='packaging' --exclude='node_modules/.cache' "$REPO_ROOT/" "$RESOURCES/app/"
-echo "App copied."
+# 4b. Copy Vision standalone (self-contained, no pnpm symlinks) so the dashboard works in the .app
+cp -r "$REPO_ROOT/packages/vision/.next/standalone" "$RESOURCES/vision-standalone"
+echo "App and Vision standalone copied."
 
 # 5. Launcher + version (for update check)
 mkdir -p "$RESOURCES/launcher"
@@ -138,6 +145,6 @@ if [ "$HAS_ICON" = "1" ]; then
 fi
 if [[ "$OUT" == *"Desktop"* ]] || [[ "$OUT" == *"Documents"* ]] || [[ "$OUT" == *"iCloud"* ]]; then
   echo ""
-  echo "Tip: This folder is often synced with iCloud, so you may see 'Esperando'. To avoid that, run:"
-  echo "  mkdir -p ~/Builds && JELLYFISH_OUTPUT_DIR=~/Builds bash packaging/mac/build.sh"
+  echo "Tip: This folder is often synced with iCloud, so you may see 'Esperando'. To avoid that, run (from project root):"
+  echo "  cd $REPO_ROOT && mkdir -p ~/Builds && JELLYFISH_OUTPUT_DIR=~/Builds bash packaging/mac/build.sh"
 fi

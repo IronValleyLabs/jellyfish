@@ -50,6 +50,7 @@ function showError(title, message) {
 
 const isWin = process.platform === 'win32';
 const PROJECT = path.join(APP_ROOT, 'app');
+const VISION_STANDALONE = path.join(APP_ROOT, 'vision-standalone');
 const NODE_BIN = path.join(APP_ROOT, 'node', isWin ? 'node.exe' : path.join('bin', 'node'));
 const REDIS_SERVER = path.join(APP_ROOT, 'redis', isWin ? 'redis-server.exe' : 'redis-server');
 
@@ -144,9 +145,10 @@ function main() {
     showError('App no encontrada', PROJECT);
     process.exit(1);
   }
+  const visionServer = path.join(VISION_STANDALONE, 'packages', 'vision', 'server.js');
   const visionNext = path.join(PROJECT, 'packages', 'vision', '.next');
-  if (!fs.existsSync(visionNext)) {
-    showError('Vision no compilada', 'Falta packages/vision/.next. Vuelve a generar la app con packaging/mac/build.sh');
+  if (!fs.existsSync(visionServer) && !fs.existsSync(visionNext)) {
+    showError('Vision no compilada', 'Falta vision-standalone o packages/vision/.next. Vuelve a generar la app con packaging/mac/build.sh');
     process.exit(1);
   }
 
@@ -183,8 +185,13 @@ function main() {
     run('chat', NODE_BIN, [path.join(PROJECT, 'packages', 'chat', 'dist', 'index.js')], PROJECT, env);
   });
   delay(3200).then(() => {
-    const nextBin = path.join(PROJECT, 'packages', 'vision', 'node_modules', 'next', 'dist', 'bin', 'next');
-    run('vision', NODE_BIN, [nextBin, 'start', '-p', '3000'], path.join(PROJECT, 'packages', 'vision'), env);
+    const visionEnv = { ...env, PORT: '3000' };
+    if (fs.existsSync(visionServer)) {
+      run('vision', NODE_BIN, [path.join(VISION_STANDALONE, 'packages', 'vision', 'server.js')], VISION_STANDALONE, visionEnv);
+    } else {
+      const nextBin = path.join(PROJECT, 'packages', 'vision', 'node_modules', 'next', 'dist', 'bin', 'next');
+      run('vision', NODE_BIN, [nextBin, 'start', '-p', '3000'], path.join(PROJECT, 'packages', 'vision'), visionEnv);
+    }
   });
 
   const dashboardUrl = 'http://localhost:3000';
