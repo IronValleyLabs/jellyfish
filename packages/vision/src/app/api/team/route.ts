@@ -37,6 +37,12 @@ export interface TeamMember {
   aliases?: string[]
   /** Conversation IDs currently assigned to this agent (e.g. ["telegram:123", "whatsapp:456"]). */
   assignedChats?: string[]
+  /** When true (default), this agent is woken by signal watcher / "trigger all". When false, only direct messages or direct trigger wake it. */
+  wakeOnSignals?: boolean
+  /** Per-agent dashboard login (overrides global Settings). Used for browser_visit / Metricool. */
+  browserVisitLoginUrl?: string
+  browserVisitUser?: string
+  browserVisitPassword?: string
 }
 
 function normalizeMember(m: Record<string, unknown>): TeamMember {
@@ -47,6 +53,7 @@ function normalizeMember(m: Record<string, unknown>): TeamMember {
     aliases: Array.isArray(base.aliases) ? base.aliases.filter((a): a is string => typeof a === 'string') : [],
     assignedChats: Array.isArray(base.assignedChats) ? base.assignedChats.filter((c): c is string => typeof c === 'string') : [],
     skills: parseSkills(base.skills),
+    wakeOnSignals: base.wakeOnSignals === false ? false : true,
   }
 }
 
@@ -72,7 +79,12 @@ function generateId(): string {
 
 export async function GET() {
   const team = await readTeam()
-  return Response.json(team)
+  // Do not send password to client; UI uses empty + "leave blank to keep"
+  const safe = team.map((m) => {
+    const { browserVisitPassword: _, ...rest } = m
+    return rest
+  })
+  return Response.json(safe)
 }
 
 export async function POST(request: NextRequest) {
@@ -131,6 +143,7 @@ export async function POST(request: NextRequest) {
       displayName: customName,
       aliases: [],
       assignedChats: [],
+      wakeOnSignals: true,
     }
     descriptionForSpawn = jobDescription && typeof jobDescription === 'string' ? jobDescription : customRole
   } else {
@@ -162,6 +175,7 @@ export async function POST(request: NextRequest) {
       displayName: template.name,
       aliases: [],
       assignedChats: [],
+      wakeOnSignals: true,
     }
     descriptionForSpawn = template.description
   }
@@ -186,7 +200,7 @@ export async function PATCH(request: NextRequest) {
   if (!id) {
     return Response.json({ error: 'id query param required' }, { status: 400 })
   }
-  let body: { jobDescription?: string; goals?: string; accessNotes?: string; kpis?: string; specMarkdown?: string; skills?: string[]; status?: 'active' | 'paused'; displayName?: string; aliases?: string[] }
+  let body: { jobDescription?: string; goals?: string; accessNotes?: string; kpis?: string; specMarkdown?: string; skills?: string[]; status?: 'active' | 'paused'; displayName?: string; aliases?: string[]; wakeOnSignals?: boolean; browserVisitLoginUrl?: string; browserVisitUser?: string; browserVisitPassword?: string }
   try {
     body = await request.json()
   } catch {
@@ -205,6 +219,10 @@ export async function PATCH(request: NextRequest) {
   if (body.skills !== undefined) team[index].skills = parseSkills(body.skills)
   if (body.displayName !== undefined && typeof body.displayName === 'string') team[index].displayName = body.displayName
   if (body.aliases !== undefined && Array.isArray(body.aliases)) team[index].aliases = body.aliases.filter((a): a is string => typeof a === 'string')
+  if (body.wakeOnSignals !== undefined) team[index].wakeOnSignals = body.wakeOnSignals
+  if (body.browserVisitLoginUrl !== undefined) team[index].browserVisitLoginUrl = typeof body.browserVisitLoginUrl === 'string' ? body.browserVisitLoginUrl : undefined
+  if (body.browserVisitUser !== undefined) team[index].browserVisitUser = typeof body.browserVisitUser === 'string' ? body.browserVisitUser : undefined
+  if (body.browserVisitPassword !== undefined) team[index].browserVisitPassword = typeof body.browserVisitPassword === 'string' ? body.browserVisitPassword : undefined
   if (body.status !== undefined) {
     const prevStatus = team[index].status
     team[index].status = body.status

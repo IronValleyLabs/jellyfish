@@ -24,6 +24,10 @@ interface TeamMember {
   actionsToday: number
   costToday: number
   lastAction: string
+  wakeOnSignals?: boolean
+  browserVisitLoginUrl?: string
+  browserVisitUser?: string
+  browserVisitPassword?: string
 }
 
 export default function MiniJellyConfig() {
@@ -39,6 +43,10 @@ export default function MiniJellyConfig() {
   const [specMarkdown, setSpecMarkdown] = useState('')
   const [skills, setSkills] = useState<string[]>([])
   const [status, setStatus] = useState<'active' | 'paused'>('active')
+  const [wakeOnSignals, setWakeOnSignals] = useState(true)
+  const [browserVisitLoginUrl, setBrowserVisitLoginUrl] = useState('')
+  const [browserVisitUser, setBrowserVisitUser] = useState('')
+  const [browserVisitPassword, setBrowserVisitPassword] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -56,6 +64,10 @@ export default function MiniJellyConfig() {
           setSpecMarkdown(m.specMarkdown ?? '')
           setSkills(m.skills ?? [])
           setStatus(m.status)
+          setWakeOnSignals(m.wakeOnSignals !== false)
+          setBrowserVisitLoginUrl(m.browserVisitLoginUrl ?? '')
+          setBrowserVisitUser(m.browserVisitUser ?? '')
+          setBrowserVisitPassword(m.browserVisitPassword ?? '')
         }
       })
       .catch(() => setMember(null))
@@ -77,6 +89,10 @@ export default function MiniJellyConfig() {
           specMarkdown: specMarkdown.trim() || undefined,
           skills: skills.length ? skills : undefined,
           status,
+          wakeOnSignals,
+          browserVisitLoginUrl: browserVisitLoginUrl.trim() || undefined,
+          browserVisitUser: browserVisitUser.trim() || undefined,
+          browserVisitPassword: browserVisitPassword || undefined,
         }),
       })
       if (res.ok) {
@@ -213,6 +229,36 @@ export default function MiniJellyConfig() {
           </div>
 
           <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-ocean-100 mb-2">Dashboard / browser login</h2>
+            <p className="text-sm text-ocean-500 mb-4">
+              Optional. When this agent visits a URL (e.g. Metricool, Lovable), it can log in first. Leave empty to use the global login from Settings.
+            </p>
+            <div className="space-y-3">
+              <input
+                type="url"
+                value={browserVisitLoginUrl}
+                onChange={(e) => setBrowserVisitLoginUrl(e.target.value)}
+                placeholder="Login page URL"
+                className="w-full px-4 py-2 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm focus:outline-none focus:border-ocean-500"
+              />
+              <input
+                type="text"
+                value={browserVisitUser}
+                onChange={(e) => setBrowserVisitUser(e.target.value)}
+                placeholder="Email or username"
+                className="w-full px-4 py-2 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm focus:outline-none focus:border-ocean-500"
+              />
+              <input
+                type="password"
+                value={browserVisitPassword}
+                onChange={(e) => setBrowserVisitPassword(e.target.value)}
+                placeholder="Password (leave blank to keep current)"
+                className="w-full px-4 py-2 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm focus:outline-none focus:border-ocean-500"
+              />
+            </div>
+          </div>
+
+          <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6">
             <h2 className="text-lg font-semibold text-ocean-100 mb-2">Agent spec (Markdown)</h2>
             <p className="text-sm text-ocean-500 mb-4">
               Optional. Instructions, tone, constraints for this agent.
@@ -224,6 +270,22 @@ export default function MiniJellyConfig() {
               className="w-full px-4 py-3 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 text-sm focus:outline-none focus:border-ocean-500 resize-y"
               placeholder="Optional Markdown spec..."
             />
+          </div>
+
+          <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-ocean-100 mb-2">Autonomous runs</h2>
+            <p className="text-sm text-ocean-500 mb-4">
+              When the signal watcher detects new trends (or &quot;trigger all&quot; runs), only agents with this on are woken. Off = only direct messages or a direct trigger wake this agent.
+            </p>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={wakeOnSignals}
+                onChange={(e) => setWakeOnSignals(e.target.checked)}
+                className="rounded border-ocean-600 bg-ocean-800 text-ocean-400 focus:ring-ocean-500 w-4 h-4"
+              />
+              <span className="text-ocean-200">Wake on new signals</span>
+            </label>
           </div>
 
           <div className="bg-ocean-900/50 backdrop-blur-sm border border-ocean-700/50 rounded-xl p-6">

@@ -115,6 +115,19 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  packages/scheduler:
+    dependencies:
+      '@jellyfish/shared':
+        specifier: workspace:*
+        version: link:../shared
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+    devDependencies:
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   packages/shared:
     dependencies:
       ioredis:

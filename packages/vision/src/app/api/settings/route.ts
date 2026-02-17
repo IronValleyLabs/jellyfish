@@ -10,6 +10,11 @@ const ALLOWED_KEYS = [
   'OPENAI_API_KEY',
   'AI_MODEL',
   'REDIS_HOST',
+  'BROWSER_VISIT_LOGIN_URL',
+  'BROWSER_VISIT_USER',
+  'BROWSER_VISIT_PASSWORD',
+  'BROWSER_VISIBLE',
+  'BROWSER_DEBUGGING_PORT',
 ] as const
 
 function getEnvPath(): string {
@@ -60,6 +65,11 @@ export async function GET() {
           openaiKey: '',
           aiModel: 'anthropic/claude-3.5-sonnet',
           redisHost: 'localhost',
+          browserVisitLoginUrl: '',
+          browserVisitUser: '',
+          browserVisitPassword: '',
+          browserVisible: false,
+          browserDebuggingPort: '9222',
           appMode: !!process.env.JELLYFISH_CONFIG_DIR,
         })
       }
@@ -74,6 +84,11 @@ export async function GET() {
     const openaiKey = getByKey(lines, 'OPENAI_API_KEY')
     const aiModel = getByKey(lines, 'AI_MODEL')
     const redisHost = getByKey(lines, 'REDIS_HOST')
+    const browserVisitLoginUrl = getByKey(lines, 'BROWSER_VISIT_LOGIN_URL')
+    const browserVisitUser = getByKey(lines, 'BROWSER_VISIT_USER')
+    const browserVisitPassword = getByKey(lines, 'BROWSER_VISIT_PASSWORD')
+    const browserVisible = getByKey(lines, 'BROWSER_VISIBLE')
+    const browserDebuggingPort = getByKey(lines, 'BROWSER_DEBUGGING_PORT')
 
     return Response.json({
       telegramToken: telegramToken ? maskSecret(telegramToken) : '',
@@ -83,6 +98,11 @@ export async function GET() {
       openaiKey: openaiKey ? maskSecret(openaiKey) : '',
       aiModel: aiModel || 'anthropic/claude-3.5-sonnet',
       redisHost: redisHost || 'localhost',
+      browserVisitLoginUrl: browserVisitLoginUrl || '',
+      browserVisitUser: browserVisitUser || '',
+      browserVisitPassword: browserVisitPassword ? maskSecret(browserVisitPassword) : '',
+      browserVisible: browserVisible === '1' || browserVisible === 'true',
+      browserDebuggingPort: browserDebuggingPort || '9222',
       appMode: !!process.env.JELLYFISH_CONFIG_DIR,
     })
   } catch (err) {
@@ -103,6 +123,11 @@ export async function POST(request: NextRequest) {
     openaiKey?: string
     aiModel?: string
     redisHost?: string
+    browserVisitLoginUrl?: string
+    browserVisitUser?: string
+    browserVisitPassword?: string
+    browserVisible?: boolean
+    browserDebuggingPort?: string
   }
   try {
     body = await request.json()
@@ -110,7 +135,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { telegramToken, telegramMainUserId, llmProvider, openrouterKey, openaiKey, aiModel, redisHost } = body
+  const { telegramToken, telegramMainUserId, llmProvider, openrouterKey, openaiKey, aiModel, redisHost, browserVisitLoginUrl, browserVisitUser, browserVisitPassword, browserVisible, browserDebuggingPort } = body
   const provider = (llmProvider ?? '').trim().toLowerCase()
   if (provider && provider !== 'openrouter' && provider !== 'openai') {
     return Response.json({ error: 'llmProvider must be openrouter or openai' }, { status: 400 })
@@ -154,6 +179,11 @@ export async function POST(request: NextRequest) {
     OPENAI_API_KEY: useToken(openaiKey, getByKey(lines, 'OPENAI_API_KEY')),
     AI_MODEL: effectiveAiModel,
     REDIS_HOST: effectiveRedisHost,
+    BROWSER_VISIT_LOGIN_URL: safe(browserVisitLoginUrl ?? getByKey(lines, 'BROWSER_VISIT_LOGIN_URL')),
+    BROWSER_VISIT_USER: safe(browserVisitUser ?? getByKey(lines, 'BROWSER_VISIT_USER')),
+    BROWSER_VISIT_PASSWORD: useToken(browserVisitPassword, getByKey(lines, 'BROWSER_VISIT_PASSWORD')),
+    BROWSER_VISIBLE: browserVisible === true ? '1' : (typeof browserVisible === 'undefined' ? getByKey(lines, 'BROWSER_VISIBLE') : ''),
+    BROWSER_DEBUGGING_PORT: (typeof browserDebuggingPort === 'string' && browserDebuggingPort.trim()) ? browserDebuggingPort.trim() : (getByKey(lines, 'BROWSER_DEBUGGING_PORT') || '9222'),
   }
 
   const keyToUpdate = new Set(ALLOWED_KEYS)

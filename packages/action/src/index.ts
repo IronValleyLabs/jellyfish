@@ -121,10 +121,22 @@ class ActionAgent {
             const url = payload.params?.url?.trim();
             if (!url) {
               result = { output: '', error: 'browser_visit requires a URL in params.url' };
+            } else if (!this.browserRunner.isAvailable()) {
+              result = { output: '', error: 'Puppeteer not installed. Run: pnpm add puppeteer (in packages/action or root).' };
             } else {
-              result = this.browserRunner.isAvailable()
-                ? await this.browserRunner.run('browser_visit', { url })
-                : { output: '', error: 'Puppeteer not installed. Run: pnpm add puppeteer (in packages/action or root).' };
+              let credentials: { loginUrl: string; user: string; password: string } | undefined;
+              try {
+                const credRes = await fetch(`${VISION_URL}/api/agent-browser-credentials?agentId=${encodeURIComponent(payload.agentId ?? '')}`);
+                if (credRes.ok) {
+                  const cred = (await credRes.json()) as { loginUrl?: string; user?: string; password?: string };
+                  if (cred.loginUrl && cred.user && cred.password) {
+                    credentials = { loginUrl: cred.loginUrl, user: cred.user, password: cred.password };
+                  }
+                }
+              } catch {
+                // use env fallback in visitUrlWithBrowser
+              }
+              result = await this.browserRunner.run('browser_visit', { url, credentials });
             }
             break;
           }

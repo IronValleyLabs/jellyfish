@@ -148,13 +148,38 @@ function main() {
   const visionServer = path.join(VISION_STANDALONE, 'packages', 'vision', 'server.js');
   const visionNext = path.join(PROJECT, 'packages', 'vision', '.next');
   if (!fs.existsSync(visionServer) && !fs.existsSync(visionNext)) {
-    showError('Vision no compilada', 'Falta vision-standalone o packages/vision/.next. Vuelve a generar la app con packaging/mac/build.sh');
+    const buildHint = isWin ? 'packaging\\windows\\build.ps1' : 'packaging/mac/build.sh';
+    showError('Vision no compilada', 'Falta vision-standalone o packages/vision/.next. Vuelve a generar la app con ' + buildHint);
     process.exit(1);
   }
 
   const env = ensureConfig();
   env.JELLYFISH_CONFIG_DIR = getConfigDir();
   log('Config loaded, starting services...');
+
+  // Optional: start Chrome with remote debugging so the agent uses a visible window (app without terminal).
+  const browserVisible = env.BROWSER_VISIBLE === '1' || env.BROWSER_VISIBLE === 'true';
+  const browserPort = env.BROWSER_DEBUGGING_PORT || '9222';
+  if (browserVisible) {
+    let chromePath = null;
+    if (process.platform === 'darwin') {
+      chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+      if (!fs.existsSync(chromePath)) chromePath = '/Applications/Chromium.app/Contents/MacOS/Chromium';
+    } else if (process.platform === 'win32') {
+      const localChrome = path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe');
+      const programChrome = path.join(process.env['ProgramFiles(x86)'] || process.env.ProgramFiles || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe');
+      if (fs.existsSync(localChrome)) chromePath = localChrome;
+      else if (fs.existsSync(programChrome)) chromePath = programChrome;
+    }
+    if (chromePath && fs.existsSync(chromePath)) {
+      const chromeProc = spawn(chromePath, ['--remote-debugging-port=' + browserPort], { stdio: 'ignore', detached: true });
+      chromeProc.unref();
+      // Do not add to children: we don't kill Chrome on app exit (user may have other tabs)
+      log('Chrome started for visible agent browser (port ' + browserPort + ')');
+    } else {
+      log('BROWSER_VISIBLE=1 but Chrome not found; agent will use headless.');
+    }
+  }
 
   // Optional: start embedded Redis if we have it (so user doesn't need Redis Cloud)
   const hasRedis = fs.existsSync(REDIS_SERVER);

@@ -5,7 +5,8 @@ export type EventName =
   | 'intent.detected'
   | 'action.completed'
   | 'action.failed'
-  | 'conversation.unassigned';
+  | 'conversation.unassigned'
+  | 'agent.tick';
 
 export interface EventPayload {
   [key: string]: unknown;

@@ -248,6 +248,11 @@ export default function Settings() {
     openaiKey: '',
     aiModel: 'anthropic/claude-3.5-sonnet',
     redisHost: 'localhost',
+    browserVisitLoginUrl: '',
+    browserVisitUser: '',
+    browserVisitPassword: '',
+    browserVisible: false,
+    browserDebuggingPort: '9222',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -259,7 +264,7 @@ export default function Settings() {
   useEffect(() => {
     fetch('/api/settings')
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed to load'))))
-      .then((data: { telegramToken?: string; telegramMainUserId?: string; llmProvider?: string; openrouterKey?: string; openaiKey?: string; aiModel?: string; redisHost?: string; appMode?: boolean }) => {
+      .then((data: { telegramToken?: string; telegramMainUserId?: string; llmProvider?: string; openrouterKey?: string; openaiKey?: string; aiModel?: string; redisHost?: string; browserVisitLoginUrl?: string; browserVisitUser?: string; browserVisitPassword?: string; browserVisible?: boolean; browserDebuggingPort?: string; appMode?: boolean }) => {
         const provider = (data.llmProvider ?? 'openrouter').toLowerCase()
         setConfig({
           telegramToken: data.telegramToken ?? '',
@@ -269,6 +274,11 @@ export default function Settings() {
           openaiKey: data.openaiKey ?? '',
           aiModel: data.aiModel ?? 'anthropic/claude-3.5-sonnet',
           redisHost: data.redisHost ?? 'localhost',
+          browserVisitLoginUrl: data.browserVisitLoginUrl ?? '',
+          browserVisitUser: data.browserVisitUser ?? '',
+          browserVisitPassword: data.browserVisitPassword ?? '',
+          browserVisible: !!data.browserVisible,
+          browserDebuggingPort: data.browserDebuggingPort ?? '9222',
         })
         setAppMode(!!data.appMode)
       })
@@ -291,6 +301,11 @@ export default function Settings() {
           openaiKey: config.openaiKey,
           aiModel: config.aiModel,
           redisHost: config.redisHost,
+          browserVisitLoginUrl: config.browserVisitLoginUrl,
+          browserVisitUser: config.browserVisitUser,
+          browserVisitPassword: config.browserVisitPassword,
+          browserVisible: config.browserVisible,
+          browserDebuggingPort: config.browserDebuggingPort,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -500,6 +515,60 @@ export default function Settings() {
                   className="w-full px-4 py-2 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 focus:outline-none focus:border-ocean-500"
                   placeholder="localhost"
                 />
+              </div>
+
+              <div className="border-t border-ocean-700/50 pt-4 mt-4">
+                <h3 className="text-sm font-semibold text-ocean-200 mb-3">
+                  Dashboard / browser login
+                </h3>
+                <p className="text-xs text-ocean-500 mb-3">
+                  So the agent can open URLs that need login (e.g. your Lovable or internal dashboard). Fill here and save — no need to edit any file. The agent uses a built-in browser (runs in the background; you don&apos;t need to open Chrome). After saving, restart Jellyfish so the agent picks it up.
+                </p>
+                <label className="flex items-center gap-3 cursor-pointer mb-3">
+                  <input
+                    type="checkbox"
+                    checked={config.browserVisible}
+                    onChange={(e) => setConfig({ ...config, browserVisible: e.target.checked })}
+                    className="rounded border-ocean-600 bg-ocean-800 text-ocean-400 focus:ring-ocean-500 w-4 h-4"
+                  />
+                  <span className="text-sm text-ocean-200">Open visible Chrome for the agent</span>
+                </label>
+                <p className="text-xs text-ocean-500 mb-3">
+                  When on, the app (or start.sh) will start Chrome so you can see the agent navigate (Metricool, browser_visit). Works with the packaged app (no terminal) and with terminal. Restart Jellyfish after changing.
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-ocean-300 mb-1">Login page URL</label>
+                    <input
+                      type="url"
+                      value={config.browserVisitLoginUrl}
+                      onChange={(e) => setConfig({ ...config, browserVisitLoginUrl: e.target.value })}
+                      className="w-full px-4 py-2 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 focus:outline-none focus:border-ocean-500"
+                      placeholder="https://your-app.com/login"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-ocean-300 mb-1">Email</label>
+                    <input
+                      type="text"
+                      inputMode="email"
+                      value={config.browserVisitUser}
+                      onChange={(e) => setConfig({ ...config, browserVisitUser: e.target.value })}
+                      className="w-full px-4 py-2 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 focus:outline-none focus:border-ocean-500"
+                      placeholder="you@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-ocean-300 mb-1">Password</label>
+                    <input
+                      type={showTokens ? 'text' : 'password'}
+                      value={config.browserVisitPassword}
+                      onChange={(e) => setConfig({ ...config, browserVisitPassword: e.target.value })}
+                      className="w-full px-4 py-2 bg-ocean-800/50 border border-ocean-700 rounded-lg text-ocean-100 focus:outline-none focus:border-ocean-500"
+                      placeholder="Leave masked to keep current"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
             )}

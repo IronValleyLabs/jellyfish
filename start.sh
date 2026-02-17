@@ -105,6 +105,31 @@ if [ -z "${TELEGRAM_BOT_TOKEN}" ] && [ -z "${TWILIO_ACCOUNT_SID}" ] && [ -z "${S
 fi
 echo "✅ Chat platform configured"
 
+# Optional: start Chrome with remote debugging so the agent uses a visible window (Metricool, browser_visit).
+# Works with terminal (start.sh) and with app (launcher does the same). Set BROWSER_VISIBLE=1 in .env.
+BROWSER_PORT="${BROWSER_DEBUGGING_PORT:-9222}"
+if [ "${BROWSER_VISIBLE}" = "1" ] || [ "${BROWSER_VISIBLE}" = "true" ]; then
+  if [ "$(uname -s)" = "Darwin" ]; then
+    CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    if [ -x "$CHROME" ]; then
+      nohup "$CHROME" --remote-debugging-port="$BROWSER_PORT" >/dev/null 2>&1 &
+      echo "✅ Chrome started (visible browser on port $BROWSER_PORT)"
+    else
+      echo "⚠️  BROWSER_VISIBLE=1 but Chrome not found at $CHROME. Agent will use headless."
+    fi
+  elif [ "$(uname -s)" = "Linux" ]; then
+    if command -v google-chrome >/dev/null 2>&1; then
+      nohup google-chrome --remote-debugging-port="$BROWSER_PORT" >/dev/null 2>&1 &
+      echo "✅ Chrome started (visible browser on port $BROWSER_PORT)"
+    elif command -v chromium-browser >/dev/null 2>&1; then
+      nohup chromium-browser --remote-debugging-port="$BROWSER_PORT" >/dev/null 2>&1 &
+      echo "✅ Chromium started (visible browser on port $BROWSER_PORT)"
+    else
+      echo "⚠️  BROWSER_VISIBLE=1 but google-chrome/chromium not found. Agent will use headless."
+    fi
+  fi
+fi
+
 echo "🪼 Starting Jellyfish..."
 echo ""
 echo "✅ Building packages..."
@@ -128,7 +153,14 @@ pnpm --filter @jellyfish/vision dev &
 VISION_PID=$!
 sleep 5
 mkdir -p data
-echo "{\"memory\":$MEMORY_PID,\"core\":$CORE_PID,\"action\":$ACTION_PID,\"chat\":$CHAT_PID,\"vision\":$VISION_PID}" > data/main-processes.json
+if [ "${SCHEDULER_ENABLED}" = "true" ] || [ "${SIGNAL_WATCHER_ENABLED}" = "true" ]; then
+  pnpm --filter @jellyfish/scheduler dev &
+  SCHEDULER_PID=$!
+  sleep 1
+  echo "{\"memory\":$MEMORY_PID,\"core\":$CORE_PID,\"action\":$ACTION_PID,\"chat\":$CHAT_PID,\"vision\":$VISION_PID,\"scheduler\":$SCHEDULER_PID}" > data/main-processes.json
+else
+  echo "{\"memory\":$MEMORY_PID,\"core\":$CORE_PID,\"action\":$ACTION_PID,\"chat\":$CHAT_PID,\"vision\":$VISION_PID}" > data/main-processes.json
+fi
 echo ""
 echo "🪼 Respawn Mini Jellys (if any)..."
 curl -s -X POST http://localhost:3000/api/team/respawn >/dev/null 2>&1 || true
@@ -139,9 +171,19 @@ echo "   - Core Agent (PID: $CORE_PID)"
 echo "   - Action Agent (PID: $ACTION_PID)"
 echo "   - Chat Agent (PID: $CHAT_PID)"
 echo "   - Dashboard Vision (PID: $VISION_PID)"
+if [ "${SCHEDULER_ENABLED}" = "true" ] || [ "${SIGNAL_WATCHER_ENABLED}" = "true" ]; then
+  echo "   - Scheduler (PID: $SCHEDULER_PID)"
+else
+  echo "   - Scheduler: off (POST /api/trigger to wake agents)"
+fi
 echo ""
 echo "🌐 Dashboard: http://localhost:3000"
 echo "📱 Telegram: talk to your bot"
+if [ "${BROWSER_VISIBLE}" = "1" ] || [ "${BROWSER_VISIBLE}" = "true" ]; then
+  echo "🌐 Agent browser: visible Chrome on port $BROWSER_PORT (Metricool, browser_visit)"
+else
+  echo "💡 To see the agent navigate: set BROWSER_VISIBLE=1 in .env and restart (or start Chrome with --remote-debugging-port=$BROWSER_PORT)"
+fi
 echo "🛑 Press Ctrl+C to stop"
 echo ""
 wait

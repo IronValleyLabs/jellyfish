@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
 import path from 'path';
 import { promises as fs } from 'fs';
-import { EventBus, MessageReceivedPayload } from '@jellyfish/shared';
+import { EventBus, MessageReceivedPayload, ContextLoadedPayload } from '@jellyfish/shared';
 import * as schema from './schema';
 import { eq, desc } from 'drizzle-orm';
 import dotenv from 'dotenv';
@@ -152,6 +152,29 @@ class MemoryAgent {
           agentId: payload.agentId ?? null,
         });
       }
+    });
+
+    // Autonomous run: scheduler emits agent.tick (with optional "signals" = trends/news). We publish synthetic context.loaded so the agent sees the world and acts.
+    this.eventBus.subscribe('agent.tick', async (event) => {
+      const payload = event.payload as { agentId?: string; signals?: string };
+      const agentId = payload?.agentId;
+      if (!agentId || !agentId.startsWith('mini-jelly-')) return;
+      const conversationId = `scheduler:${agentId}`;
+      let tickMessage =
+        'Autonomous run: you see what\'s happening in the world and your goals. If you spot a trend or opportunity, act on it (create content, post, schedule). Use your tools (draft, Metricool, Instagram, etc.). Then report briefly to your human.';
+      if (payload.signals?.trim()) {
+        tickMessage =
+          `Current context from the world (trends, news — act on what's relevant):\n${payload.signals.trim()}\n\n` + tickMessage;
+      }
+      console.log('[MemoryAgent] agent.tick', agentId, payload.signals ? '(with signals)' : '', '→ context.loaded');
+      const contextPayload: ContextLoadedPayload = {
+        conversationId,
+        history: [],
+        currentMessage: tickMessage,
+        targetAgentId: agentId,
+        assignedAgentId: agentId,
+      };
+      await this.eventBus.publish('context.loaded', contextPayload, event.correlationId);
     });
   }
 }

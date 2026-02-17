@@ -148,10 +148,24 @@ async function main() {
     console.log(`[ChatAgent] Webhook server listening on port ${WEBHOOK_PORT}`);
   });
 
+  const schedulerReportCid = process.env.SCHEDULER_REPORT_CONVERSATION_ID?.trim();
   eventBus.subscribe('action.completed', async (event) => {
-    const payload = event.payload as { conversationId?: string; result?: { output?: string } };
+    const payload = event.payload as { conversationId?: string; result?: { output?: string }; agentId?: string };
     if (!payload.conversationId || !payload.result?.output) return;
     const cid = payload.conversationId;
+    // Scheduler runs use conversationId scheduler:mini-jelly-xxx. Optionally forward report to human.
+    if (cid.startsWith('scheduler:') && schedulerReportCid) {
+      const adapter = adapters.find((a) => schedulerReportCid.startsWith(a.conversationIdPrefix));
+      if (adapter) {
+        try {
+          console.log('[ChatAgent] Sending scheduler report to', schedulerReportCid);
+          await adapter.sendMessage(schedulerReportCid, `📋 Autonomous run (${payload.agentId ?? 'agent'}):\n\n${payload.result.output}`);
+        } catch (err) {
+          console.error('[ChatAgent] Error sending scheduler report:', err);
+        }
+      }
+      return;
+    }
     const adapter = adapters.find((a) => cid.startsWith(a.conversationIdPrefix));
     if (adapter) {
       try {
@@ -160,7 +174,7 @@ async function main() {
       } catch (err) {
         console.error('[ChatAgent] Error sending message to', cid, err);
       }
-    } else {
+    } else if (!cid.startsWith('scheduler:')) {
       console.warn('[ChatAgent] No adapter for conversationId', cid);
     }
   });

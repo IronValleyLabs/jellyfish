@@ -1,0 +1,16 @@
+{
+  "name": "@jellyfish/scheduler",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "pnpm -C ../.. exec pnpm --filter @jellyfish/shared run build && tsc && node dist/index.js"
+  },
+  "dependencies": {
+    "@jellyfish/shared": "workspace:*",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

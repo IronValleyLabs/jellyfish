@@ -21,8 +21,10 @@
 | Core     | `action.completed`      | Chat, Memory        | Respuesta generada por Core. |
 | Action   | `action.completed`      | Chat, Memory        | Resultado de bash/websearch. |
 | Action   | `action.failed`         | Chat (si se usa)    | Errores de acción. |
+| Scheduler| `agent.tick`            | Memory              | Cada N horas (SCHEDULER_INTERVAL_MS); Memory publica `context.loaded` sintético para que el agente "despierte" y ejecute sus goals/KPIs sin que nadie escriba. |
+| Memory   | `context.loaded` (tick)| Core (Mini Jelly)   | conversationId `scheduler:mini-jelly-xxx`; el agente ejecuta tareas (post, report, etc.) y opcionalmente reporta a SCHEDULER_REPORT_CONVERSATION_ID. |
 
-**¿Es 100% autónomo?** Sí, una vez arrancados los procesos (start.sh o equivalentes). No hace falta intervención para: recibir mensaje → cargar contexto → detectar intención → ejecutar respuesta o acción → enviar al usuario y guardar en memoria.
+**¿Es 100% autónomo?** Sí: (1) ante mensajes: recibir → contexto → intención → acción → enviar/guardar. (2) **Sin mensaje**: el Scheduler emite `agent.tick` por cada Mini Jelly activo; Memory publica un `context.loaded` sintético; el agente ejecuta sus goals (ej. publicar 3x/semana, reportar) usando draft, Metricool, etc., y puede enviar el reporte a Telegram si se configura `SCHEDULER_REPORT_CONVERSATION_ID`.
 
 ---
 

@@ -87,6 +87,15 @@ Edit `.env`. Main variables:
 | `INSTAGRAM_USER`, `INSTAGRAM_PASSWORD` | For instagram_post intent |
 | **Metricool (browser)** | |
 | `METRICOOL_EMAIL`, `METRICOOL_PASSWORD` | For metricool_schedule intent |
+| **Browser visit** | Open URLs (e.g. dashboards); optional login before visit. |
+| `BROWSER_VISIT_LOGIN_URL`, `BROWSER_VISIT_USER`, `BROWSER_VISIT_PASSWORD` | Global login (Settings or .env). Per-agent login in Mini Jelly config overrides these. |
+| `BROWSER_VISIBLE` | `1` or `true`: start Chrome with remote debugging so you see the agent navigate (Metricool, browser_visit). Works with `./start.sh` and with the packaged app (no terminal). |
+| `BROWSER_DEBUGGING_PORT` | Port for Chrome remote debugging (default `9222`) |
+| **Autonomous agents** | |
+| `SIGNAL_WATCHER_ENABLED` | `true`: check trends periodically; when they change, wake agents (e.g. Social Media Manager) |
+| `SIGNAL_WATCHER_INTERVAL_MS` | Interval in ms (e.g. `1800000` = 30 min) |
+| `SCHEDULER_ENABLED` | `true`: fixed-interval wake (optional, on top of signal watcher) |
+| `SCHEDULER_INTERVAL_MS` | e.g. `86400000` (24 h) |
 | **Redis** | |
 | `REDIS_HOST` | Redis host (default `localhost`) |
 | `REDIS_PORT` | Redis port (default `6379`) |
@@ -108,11 +117,12 @@ chmod +x start.sh
 
 This builds packages and starts:
 
-- **Memory** — conversation history (SQLite), publishes `context.loaded`
+- **Memory** — conversation history (SQLite), publishes `context.loaded`; on `agent.tick` builds synthetic context for autonomous runs
 - **Core** — intent detection + response generation (OpenRouter/OpenAI), publishes `action.completed`
 - **Chat** — Telegram/WhatsApp/Slack/Line/Google Chat; publishes `message.received`, sends replies
-- **Action** — bash, web search, and **draft** (copies/captions/emails via optional Draft LLM to save tokens)
+- **Action** — bash, web search, **draft**, **browser_visit** (Puppeteer: connects to visible Chrome if `BROWSER_VISIBLE=1` or headless), instagram_post, metricool_schedule
 - **Vision** — Next.js dashboard at **http://localhost:3000**
+- **Scheduler** (optional) — when `SCHEDULER_ENABLED` or `SIGNAL_WATCHER_ENABLED` is set: emits `agent.tick` or reacts to signal changes and wakes agents
 
 ### 5. Stop
 
@@ -129,9 +139,9 @@ This builds packages and starts:
 - **Home** — Team overview (up to 20 Mini Jellys), status, links to Gallery and Settings
 - **Chat** — Full history of incoming and outgoing messages from all platforms (Telegram, WhatsApp, etc.) with user id, platform, and which Mini Jelly replied
 - **Gallery** — Predefined AI roles; add to team with optional job description
-- **Mini Jelly** (`/mini/[id]`) — Edit job description, status (active/paused), remove from team
+- **Mini Jelly** (`/mini/[id]`) — Edit job description, goals, KPIs, status (active/paused), **per-agent dashboard login** (URL, email, password for browser_visit), wake on signals, skills
 - **Live Logs** — Real-time event stream from Redis (SSE)
-- **Settings** — API keys, model, Redis; prompt editors (Core, Memory, Action)
+- **Settings** — API keys, model, Redis; **Dashboard / browser login** (global); **Open visible Chrome for the agent**; prompt editors (Core, Memory, Action)
 
 ---
 
@@ -146,7 +156,10 @@ This builds packages and starts:
 | DELETE | `/api/team?id=` | Remove member |
 | GET | `/api/status` | Process status |
 | GET | `/api/metrics` | Token usage / metrics |
-| GET/POST | `/api/settings` | Read/write settings (LLM, Redis, etc.) |
+| GET/POST | `/api/settings` | Read/write settings (LLM, Redis, browser login, BROWSER_VISIBLE, etc.) |
+| GET | `/api/agent-browser-credentials?agentId=` | Browser login for an agent (per-agent or global); used by Action |
+| POST | `/api/trigger` | Wake agents (`agentId` or `all: true`, optional `signals`) |
+| GET | `/api/signals` | Cached trends/signals (for watcher and agents) |
 
 ---
 
@@ -184,7 +197,10 @@ Ensure Node 18+ is active (`node -v`). If you still see a build error, open an i
 - **KPIs and goals** — Each agent has configurable KPIs and goals; the system prompt tells them to work towards these and report findings and recommendations to the human.
 - **Draft LLM** — Optional secondary model (e.g. ChatGPT / `gpt-4o-mini`). Set `DRAFT_OPENAI_API_KEY` and optionally `DRAFT_AI_MODEL` in `.env`. When the user asks for copies, captions, emails, or posts, the **draft** intent sends the task to this model so the main LLM is only used for reasoning; writing cost is on the draft model (often cheaper).
 - **Access notes** — Per-agent “Access & credentials” field describes what the agent can use (e.g. “Instagram login in 1Password”, “Metricool API key in .env”). The agent sees this and can tell the human what it can or cannot do.
-- **Tools** — Chat, safe bash, web search, draft (writing), generate_image (DALL·E 3), instagram_post (Puppeteer), metricool_schedule (Puppeteer).
+- **Tools** — Chat, safe bash, web search, draft (writing), generate_image (Nano Banana Pro), instagram_post (Puppeteer), metricool_schedule (Puppeteer), **browser_visit** (Puppeteer; optional login then open URL).
+- **Per-agent dashboard login** — In each Mini Jelly config: Login URL, email, password for browser_visit (Metricool, Lovable). Global default in Settings; per-agent overrides. Action fetches credentials via `/api/agent-browser-credentials?agentId=`.
+- **Visible browser** — Set `BROWSER_VISIBLE=1` in .env or Settings ("Open visible Chrome for the agent"). With terminal (`./start.sh`) or the packaged app (DMG/EXE), Chrome is started so you see the agent navigate.
+- **Scheduler & signal watcher** — `SIGNAL_WATCHER_ENABLED=true` wakes agents when signals change; `SCHEDULER_ENABLED=true` for fixed-interval wake; **POST /api/trigger** to wake by event (webhook, Zapier).
 
 **Missing for e.g. “Social Media Manager: here’s the Instagram account, do copies, schedule in Metricool”**
 
@@ -204,17 +220,26 @@ Once those are in place, you could give the Social Media Manager the Instagram a
 
 ---
 
+## Packaged app (no terminal)
+
+- **Mac:** Run `packaging/mac/build.sh` to produce a DMG. The app uses `~/Library/Application Support/Jellyfish` for config and `.env`. If you set **BROWSER_VISIBLE=1** (in Settings or .env), the launcher starts Chrome so you can see the agent navigate.
+- **Windows:** Use the GitHub Actions workflow "Build Windows" or run `packaging/windows/build.ps1` to produce a zip. Same behaviour: config in `%APPDATA%\\Jellyfish`; optional visible Chrome via `BROWSER_VISIBLE=1`.
+
+Updates: the launcher checks for a new release and can open the downloads page; users install new versions manually.
+
 ## Project structure
 
 ```
 ├── docs/                 # Configuration and reference
+├── packaging/            # Mac DMG, Windows zip, launcher (Node)
 ├── packages/
 │   ├── shared/           # EventBus, Redis, event types, metrics
-│   ├── memory/           # SQLite + Drizzle, context.loaded
+│   ├── memory/           # SQLite + Drizzle, context.loaded, agent.tick
 │   ├── core/             # OpenRouter/OpenAI, intent + response, action.completed
 │   ├── chat/             # Telegram, WhatsApp, Slack, Line, Google Chat
-│   ├── action/           # Bash executor, web search
-│   └── vision/           # Next.js dashboard, team API
+│   ├── action/           # Bash, web search, draft, browser (Puppeteer), instagram, metricool
+│   ├── scheduler/         # agent.tick, signal watcher, fixed-interval wake
+│   └── vision/           # Next.js dashboard, team API, settings, trigger, signals
 ├── .nvmrc                 # Node 20 (for nvm use)
 ├── install.sh             # One-command interactive installer
 ├── start.sh

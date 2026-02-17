@@ -163,14 +163,26 @@ export async function metricoolSchedule(
   }
 }
 
+/** Optional credentials for login-before-visit. If not provided, env BROWSER_VISIT_* is used. */
+export interface BrowserVisitCredentials {
+  loginUrl: string;
+  user: string;
+  password: string;
+}
+
 /**
- * Visit a URL in a real browser; optionally log in first if BROWSER_VISIT_* env is set.
+ * Visit a URL in a real browser; optionally log in first using credentials param or BROWSER_VISIT_* env.
  * Returns page title + main text content for the agent to analyze.
  */
 export async function visitUrlWithBrowser(
   browser: Browser,
-  url: string
+  url: string,
+  credentials?: BrowserVisitCredentials | null
 ): Promise<{ output: string; error?: string }> {
+  const loginUrl = credentials?.loginUrl?.trim() ?? BROWSER_VISIT_LOGIN_URL;
+  const loginUser = credentials?.user?.trim() ?? BROWSER_VISIT_USER;
+  const loginPassword = credentials?.password ?? BROWSER_VISIT_PASSWORD;
+
   const fullUrl = /^https?:\/\//i.test(url) ? url : 'https://' + url;
   const page = await browser.newPage();
   try {
@@ -180,15 +192,15 @@ export async function visitUrlWithBrowser(
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     );
 
-    if (BROWSER_VISIT_LOGIN_URL && BROWSER_VISIT_USER && BROWSER_VISIT_PASSWORD) {
-      await page.goto(BROWSER_VISIT_LOGIN_URL, { waitUntil: 'networkidle2' });
+    if (loginUrl && loginUser && loginPassword) {
+      await page.goto(loginUrl, { waitUntil: 'networkidle2' });
       await delay(1500);
       const userInput = await page.$(
         'input[type="email"], input[type="text"][name*="user"], input[name="username"], input[name="email"], input[autocomplete="username"]'
       );
       const passInput = await page.$('input[type="password"], input[name="password"]');
-      if (userInput) await userInput.type(BROWSER_VISIT_USER, { delay: 50 });
-      if (passInput) await passInput.type(BROWSER_VISIT_PASSWORD, { delay: 50 });
+      if (userInput) await userInput.type(loginUser, { delay: 50 });
+      if (passInput) await passInput.type(loginPassword, { delay: 50 });
       const submit = await page.$('button[type="submit"], input[type="submit"]');
       if (submit) {
         await Promise.all([
@@ -220,7 +232,12 @@ export async function visitUrlWithBrowser(
     return { output: out };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    return { output: '', error: `Browser visit failed: ${msg}` };
+    let hint = '';
+    if (loginUrl && loginUser && loginPassword) {
+      hint =
+        ' Login is set (per-agent or BROWSER_VISIT_*). Check that the login page URL is correct. Some sites need different selectors.';
+    }
+    return { output: '', error: `Browser visit failed: ${msg}.${hint}` };
   } finally {
     await page.close().catch(() => {});
   }
