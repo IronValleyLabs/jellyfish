@@ -39,28 +39,51 @@ if ! redis_ok; then
     echo "  Installing and starting Redis locally (macOS)..."
     echo ""
     if ! command -v redis-server >/dev/null 2>&1; then
-      brew install redis || { echo "  brew install redis failed."; exit 1; }
+      if command -v brew >/dev/null 2>&1; then
+        brew install redis || { echo "  brew install redis failed."; exit 1; }
+      else
+        echo "  Homebrew (brew) is not installed. Install Redis one of these ways:"
+        echo ""
+        echo "  1) Install Homebrew first: https://brew.sh"
+        echo "     Then run: brew install redis && brew services start redis"
+        echo ""
+        echo "  2) Or use Redis Cloud (no local install): https://redis.com/try-free/"
+        echo "     Then in .env set REDIS_HOST, REDIS_PORT, REDIS_PASSWORD"
+        echo ""
+        exit 1
+      fi
     fi
-    brew services start redis 2>/dev/null || redis-server --daemonize yes 2>/dev/null || true
+    if command -v brew >/dev/null 2>&1; then
+      brew services start redis 2>/dev/null || true
+    fi
+    redis-server --daemonize yes 2>/dev/null || true
     echo "  Waiting for Redis to start..."
     sleep 2
     if redis_ok; then
       echo "✅ Redis is now running at $REDIS_HOST:$REDIS_PORT"
     else
       echo "  Could not start Redis. Run manually:"
-      echo "    brew install redis"
-      echo "    brew services start redis"
-      echo ""
-      echo "  Or use Redis Cloud: https://redis.com/try-free/ (set REDIS_HOST, REDIS_PORT, REDIS_PASSWORD in .env)"
+      if command -v brew >/dev/null 2>&1; then
+        echo "    brew install redis"
+        echo "    brew services start redis"
+      else
+        echo "    Install Homebrew: https://brew.sh  then: brew install redis && brew services start redis"
+        echo "    Or use Redis Cloud: https://redis.com/try-free/ (set REDIS_HOST, REDIS_PORT, REDIS_PASSWORD in .env)"
+      fi
       echo ""
       exit 1
     fi
   else
-    echo "  Option A — Local Redis (macOS):"
-    echo "    brew install redis"
-    echo "    brew services start redis   # or: redis-server"
+    echo "  Option A — Local Redis:"
+    if [ "$(uname -s)" = "Darwin" ]; then
+      echo "    If you have Homebrew: brew install redis && brew services start redis"
+      echo "    If not: install from https://brew.sh first"
+    else
+      echo "    Linux: sudo apt-get install redis-server   (or dnf install redis)"
+      echo "    Then: sudo systemctl start redis   or   redis-server"
+    fi
     echo ""
-    echo "  Option B — Redis Cloud (free): https://redis.com/try-free/"
+    echo "  Option B — Redis Cloud (free, no local install): https://redis.com/try-free/"
     echo "    Then in .env set REDIS_HOST, REDIS_PORT, REDIS_PASSWORD"
     echo ""
     echo "  Then run ./start.sh again."
