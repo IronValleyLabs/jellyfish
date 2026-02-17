@@ -4,7 +4,9 @@
 set -e
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
-OUT="$REPO_ROOT/packaging/out/mac"
+# Build outside iCloud to avoid "Esperando": JELLYFISH_OUTPUT_DIR=~/Builds ./packaging/mac/build.sh
+OUT="${JELLYFISH_OUTPUT_DIR:-$REPO_ROOT/packaging/out/mac}"
+mkdir -p "$OUT"
 APP="$OUT/Jellyfish.app"
 RESOURCES="$APP/Contents/Resources"
 NODE_VERSION="20.18.0"
@@ -18,7 +20,8 @@ NODE_TAR="node-v${NODE_VERSION}-${NODE_ARCH}.tar.gz"
 NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/${NODE_TAR}"
 
 echo "Building Jellyfish.app (macOS $NODE_ARCH)..."
-rm -rf "$OUT"
+echo "Output: $OUT"
+rm -rf "$APP" "$OUT/Jellyfish.dmg"
 mkdir -p "$RESOURCES"
 
 # 1. Download Node if not present
@@ -60,6 +63,9 @@ HAS_ICON=0
 if [ -f "$REPO_ROOT/packaging/resources/mac/AppIcon.icns" ]; then
   cp "$REPO_ROOT/packaging/resources/mac/AppIcon.icns" "$RESOURCES/"
   HAS_ICON=1
+  echo "App icon: included (AppIcon.icns)"
+else
+  echo "App icon: none (add packaging/resources/mac/AppIcon.icns to get one)"
 fi
 
 # 6. macOS .app entry point
@@ -114,5 +120,18 @@ else
 PLIST
 fi
 
+# Force Finder to notice the bundle (helps icon show up)
+touch "$APP"
+
 echo "Done: $APP"
 echo "To create a .dmg: hdiutil create -volname Jellyfish -srcfolder $APP -ov -format UDZO $OUT/Jellyfish.dmg"
+echo ""
+if [ "$HAS_ICON" = "1" ]; then
+  echo "If the icon still looks generic in Finder/Dock, run:  killall Finder"
+  echo "  (macOS caches icons; that refreshes it.)"
+fi
+if [[ "$OUT" == *"Desktop"* ]] || [[ "$OUT" == *"Documents"* ]] || [[ "$OUT" == *"iCloud"* ]]; then
+  echo ""
+  echo "Tip: This folder is often synced with iCloud, so you may see 'Esperando'. To avoid that, run:"
+  echo "  mkdir -p ~/Builds && JELLYFISH_OUTPUT_DIR=~/Builds bash packaging/mac/build.sh"
+fi

@@ -4,8 +4,9 @@
 set -e
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
-APP="$REPO_ROOT/packaging/out/mac/Jellyfish.app"
-DMG="$REPO_ROOT/packaging/out/mac/Jellyfish.dmg"
+OUT="${JELLYFISH_OUTPUT_DIR:-$REPO_ROOT/packaging/out/mac}"
+APP="$OUT/Jellyfish.app"
+DMG="$OUT/Jellyfish.dmg"
 TAG="${1:-v1.0.0}"
 
 if [ ! -d "$APP" ]; then

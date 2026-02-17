@@ -23,6 +23,23 @@ Para crear un .dmg (opcional):
 hdiutil create -volname Jellyfish -srcfolder packaging/out/mac/Jellyfish.app -ov -format UDZO packaging/out/mac/Jellyfish.dmg
 ```
 
+### Evitar "Esperando" (iCloud)
+
+Si el proyecto está en Escritorio, Documentos o iCloud, los .app y .dmg pueden aparecer como "Esperando" mientras iCloud sincroniza. Para generar la app en una carpeta que no se sincronice con iCloud:
+
+```bash
+mkdir -p ~/Builds
+JELLYFISH_OUTPUT_DIR=~/Builds bash packaging/mac/build.sh
+```
+
+La app y el .dmg quedarán en `~/Builds/`. Luego puedes crear el .dmg con:
+
+```bash
+JELLYFISH_OUTPUT_DIR=~/Builds hdiutil create -volname Jellyfish -srcfolder ~/Builds/Jellyfish.app -ov -format UDZO ~/Builds/Jellyfish.dmg
+```
+
+(O usa `packaging/mac/create-release.sh` después de exportar `JELLYFISH_OUTPUT_DIR=~/Builds`.)
+
 ## Windows: generar carpeta + zip
 
 ### Si tienes Windows (PowerShell)
