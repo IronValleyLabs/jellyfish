@@ -11,6 +11,8 @@ $NODE_URL = "https://nodejs.org/dist/v$NODE_VERSION/$NODE_ZIP"
 $CACHE = Join-Path $REPO_ROOT "packaging\cache"
 
 Write-Host "Building Jellyfish for Windows..."
+Write-Host "REPO_ROOT=$REPO_ROOT"
+Write-Host "OUT=$OUT"
 if (Test-Path $OUT) { Remove-Item -Recurse -Force $OUT }
 New-Item -ItemType Directory -Force -Path $BUNDLE | Out-Null
 
@@ -46,13 +48,17 @@ if (-not $env:CI) {
 }
 
 # 4. Copy app (use robocopy to avoid long-path and symlink issues on Windows)
-Write-Host "Copying app..."
+Write-Host "Copying app (robocopy)..."
 $appDest = Join-Path $BUNDLE "app"
 New-Item -ItemType Directory -Force -Path $appDest | Out-Null
-$robocopyExit = 0
-robocopy $REPO_ROOT $appDest /E /XD .git packaging out /NFL /NDL /NJH /NJS /NC /NS /NP | Out-Null
-# Robocopy exit: 0=nothing copied, 1=copied, 2+ = extra; 8+ = failures. So 0-7 = OK
-if ($LASTEXITCODE -ge 8) { throw "Robocopy failed with exit $LASTEXITCODE" }
+$robocopyLog = robocopy $REPO_ROOT $appDest /E /XD .git packaging out /NFL /NDL /NJH /NJS /NC /NS /NP 2>&1
+# Robocopy exit: 0-7 = OK, 8+ = failures
+if ($LASTEXITCODE -ge 8) {
+    Write-Host "Robocopy output (last 30 lines):"
+    $robocopyLog | Select-Object -Last 30
+    throw "Robocopy failed with exit $LASTEXITCODE"
+}
+Write-Host "Robocopy done (exit $LASTEXITCODE)"
 # Remove packaging if it slipped in
 $packagingInApp = Join-Path $appDest "packaging"
 if (Test-Path $packagingInApp) { Remove-Item -Recurse -Force $packagingInApp }
@@ -74,15 +80,20 @@ Set-Content -Path (Join-Path $BUNDLE "Run Jellyfish.bat") -Value $bat -Encoding 
 Write-Host "Done: $BUNDLE"
 Write-Host "Creating zip..."
 $zipPath = Join-Path $OUT "Jellyfish-win-x64.zip"
-# Use 7-Zip if available (handles long paths); fallback to Compress-Archive
 $use7z = $false
-if (Get-Command 7z -ErrorAction SilentlyContinue) { $use7z = $true }
-elseif (Test-Path "C:\Program Files\7-Zip\7z.exe") { $use7z = $true; $env:PATH = "C:\Program Files\7-Zip;$env:PATH" }
+if (Get-Command 7z -ErrorAction SilentlyContinue) { $use7z = $true; Write-Host "Using 7z from PATH" }
+elseif (Test-Path "C:\Program Files\7-Zip\7z.exe") { $use7z = $true; $env:PATH = "C:\Program Files\7-Zip;$env:PATH"; Write-Host "Using 7z from Program Files" }
 if ($use7z) {
-    & 7z a -tzip $zipPath $BUNDLE | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "7z failed with exit $LASTEXITCODE" }
+    $sevenZLog = & 7z a -tzip $zipPath $BUNDLE 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "7z output (last 20 lines):"
+        $sevenZLog | Select-Object -Last 20
+        throw "7z failed with exit $LASTEXITCODE"
+    }
+    Write-Host "7z completed (exit $LASTEXITCODE)"
 } else {
+    Write-Host "7z not found, using Compress-Archive (may fail on long paths)"
     Compress-Archive -Path $BUNDLE -DestinationPath $zipPath -Force
 }
 Write-Host "Zip: $zipPath"
-if (Test-Path $zipPath) { Write-Host "Zip size: $((Get-Item $zipPath).Length / 1MB) MB" }
+if (Test-Path $zipPath) { Write-Host "Zip size: $((Get-Item $zipPath).Length / 1MB) MB" } else { throw "Zip file was not created" }

@@ -40,16 +40,31 @@ jobs:
         run: pnpm build
 
       - name: Build Vision (Next.js)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: pnpm --filter @jellyfish/vision run build
+
+      - name: Verify Vision build
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "packages\vision\.next")) { Write-Error "Vision .next missing"; exit 1 }
+          Get-ChildItem "packages\vision\.next" | Select-Object Name
+
+      - name: Verify 7z
+        shell: pwsh
+        run: 7z | Select-Object -First 2
 
       - name: Package for Windows
         shell: pwsh
         run: |
+          Set-Location $env:GITHUB_WORKSPACE
           Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
           & .\packaging\windows\build.ps1
           if (-not (Test-Path "packaging\out\windows\Jellyfish-win-x64.zip")) {
             Write-Error "Zip was not created"
-            Get-ChildItem -Path "packaging\out\windows" -Recurse -Depth 1 | Format-Table Name, Length
+            if (Test-Path "packaging\out\windows") {
+              Get-ChildItem "packaging\out\windows" -Recurse -Depth 2 | Format-Table FullName, Length -AutoSize
+            }
             exit 1
           }
           Get-Item "packaging\out\windows\Jellyfish-win-x64.zip" | Select-Object Name, @{N='SizeMB';E={[math]::Round($_.Length/1MB,2)}}
