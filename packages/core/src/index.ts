@@ -1,7 +1,7 @@
 import path from 'path';
 import { EventBus, ContextLoadedPayload, MetricsCollector } from '@jellyfish/shared';
 import { AIProcessor } from './ai-processor';
-import { loadSystemPrompt } from './load-system-prompt';
+import { loadSystemPrompt, loadAgentRole, loadAgentKpis, loadAgentKnowledge } from './load-system-prompt';
 import dotenv from 'dotenv';
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config();
@@ -57,9 +57,16 @@ class CoreAgent {
           await this.metrics.addCost(this.agentId, intentCost);
         }
         if (intent === 'response') {
+          const [role, kpis, knowledge] = await Promise.all([
+            loadAgentRole(),
+            loadAgentKpis(),
+            loadAgentKnowledge(),
+          ]);
+          const extraContext = [role, kpis, knowledge].filter(Boolean).join('');
           const { content, usage } = await this.aiProcessor.generateResponse(
             payload.currentMessage,
-            payload.history
+            payload.history,
+            extraContext
           );
           await this.metrics.incrementActions(this.agentId);
           await this.metrics.recordAction(this.agentId, 'response_generated');

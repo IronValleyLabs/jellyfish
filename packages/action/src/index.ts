@@ -1,21 +1,28 @@
 import path from 'path';
 import { EventBus, MetricsCollector } from '@jellyfish/shared';
 import { BashExecutor } from './bash-executor';
-import { WebSearcher } from './web-searcher';
+import { WebSearcher, looksLikeUrl } from './web-searcher';
 import { DraftExecutor } from './draft-executor';
 import { ImageExecutor } from './image-executor';
 import { BrowserRunner } from './browser-runner';
 import { CreateSkillExecutor } from './create-skill-executor';
+import { WriteFileExecutor } from './write-file-executor';
 import dotenv from 'dotenv';
 
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config();
+
+const VISION_URL = (process.env.VISION_CHAT_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 
 interface IntentPayload {
   intent?: string;
   params?: {
     command?: string;
     query?: string;
+    url?: string;
+    filePath?: string;
+    key?: string;
+    value?: string;
     text?: string;
     prompt?: string;
     size?: string;
@@ -39,6 +46,7 @@ class ActionAgent {
   private imageExecutor: ImageExecutor;
   private browserRunner: BrowserRunner;
   private createSkillExecutor: CreateSkillExecutor;
+  private writeFileExecutor: WriteFileExecutor;
   private metrics: MetricsCollector;
 
   constructor() {
@@ -50,6 +58,7 @@ class ActionAgent {
     this.imageExecutor = new ImageExecutor();
     this.browserRunner = new BrowserRunner();
     this.createSkillExecutor = new CreateSkillExecutor();
+    this.writeFileExecutor = new WriteFileExecutor();
     this.metrics = new MetricsCollector();
     if (this.draftExecutor.isEnabled()) console.log('[ActionAgent] Draft LLM enabled');
     if (this.imageExecutor.isEnabled()) console.log('[ActionAgent] Image generation (Nano Banana Pro) enabled');
@@ -69,9 +78,14 @@ class ActionAgent {
               payload.params?.command || ''
             );
             break;
-          case 'websearch':
-            result = { output: await this.webSearcher.search(payload.params?.query || '') };
+          case 'websearch': {
+            const query = payload.params?.query || '';
+            const output = looksLikeUrl(query)
+              ? await this.webSearcher.fetchUrl(query)
+              : await this.webSearcher.search(query);
+            result = { output };
             break;
+          }
           case 'draft':
             result = await this.draftExecutor.execute(
               payload.params?.prompt || ''
@@ -103,6 +117,51 @@ class ActionAgent {
               payload.params?.instructions ?? ''
             );
             break;
+          case 'browser_visit': {
+            const url = payload.params?.url?.trim();
+            if (!url) {
+              result = { output: '', error: 'browser_visit requires a URL in params.url' };
+            } else {
+              result = this.browserRunner.isAvailable()
+                ? await this.browserRunner.run('browser_visit', { url })
+                : { output: '', error: 'Puppeteer not installed. Run: pnpm add puppeteer (in packages/action or root).' };
+            }
+            break;
+          }
+          case 'store_credential': {
+            const key = payload.params?.key?.trim();
+            const value = payload.params?.value ?? '';
+            if (!key) {
+              result = { output: '', error: 'store_credential requires params.key (e.g. BROWSER_VISIT_PASSWORD).' };
+            } else {
+              try {
+                const res = await fetch(`${VISION_URL}/api/settings/env`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ key, value: String(value) }),
+                });
+                const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
+                if (res.ok && data.ok) {
+                  result = { output: data.message ?? `Saved ${key}. Restart agents to apply.` };
+                } else {
+                  result = { output: '', error: data.error ?? `Failed to save (${res.status})` };
+                }
+              } catch (err) {
+                result = { output: '', error: err instanceof Error ? err.message : 'Failed to call Vision API.' };
+              }
+            }
+            break;
+          }
+          case 'write_file': {
+            const filePath = payload.params?.filePath?.trim();
+            const content = payload.params?.content ?? '';
+            if (!filePath) {
+              result = { output: '', error: 'write_file requires params.filePath (e.g. docs/vision.md or data/agent-knowledge.md).' };
+            } else {
+              result = await this.writeFileExecutor.execute(filePath, content);
+            }
+            break;
+          }
           case 'response':
             result = { output: payload.params?.text || 'No response' };
             break;

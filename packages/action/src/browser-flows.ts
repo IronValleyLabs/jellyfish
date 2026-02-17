@@ -14,7 +14,13 @@ const INSTAGRAM_PASSWORD = process.env.INSTAGRAM_PASSWORD?.trim();
 const METRICOOL_EMAIL = process.env.METRICOOL_EMAIL?.trim();
 const METRICOOL_PASSWORD = process.env.METRICOOL_PASSWORD?.trim();
 
+/** Optional: login before visiting a URL (e.g. for Lovable, private dashboards). */
+export const BROWSER_VISIT_LOGIN_URL = process.env.BROWSER_VISIT_LOGIN_URL?.trim();
+export const BROWSER_VISIT_USER = process.env.BROWSER_VISIT_USER?.trim();
+export const BROWSER_VISIT_PASSWORD = process.env.BROWSER_VISIT_PASSWORD?.trim();
+
 const FLOW_TIMEOUT_MS = 120_000;
+const BROWSER_VISIT_TIMEOUT_MS = 45_000;
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function downloadToTemp(url: string): Promise<string> {
@@ -152,6 +158,69 @@ export async function metricoolSchedule(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { output: '', error: `Metricool flow failed: ${msg}` };
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+/**
+ * Visit a URL in a real browser; optionally log in first if BROWSER_VISIT_* env is set.
+ * Returns page title + main text content for the agent to analyze.
+ */
+export async function visitUrlWithBrowser(
+  browser: Browser,
+  url: string
+): Promise<{ output: string; error?: string }> {
+  const fullUrl = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+  const page = await browser.newPage();
+  try {
+    page.setDefaultTimeout(BROWSER_VISIT_TIMEOUT_MS);
+    await page.setViewport({ width: 1280, height: 800 });
+    await page.setUserAgent(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    );
+
+    if (BROWSER_VISIT_LOGIN_URL && BROWSER_VISIT_USER && BROWSER_VISIT_PASSWORD) {
+      await page.goto(BROWSER_VISIT_LOGIN_URL, { waitUntil: 'networkidle2' });
+      await delay(1500);
+      const userInput = await page.$(
+        'input[type="email"], input[type="text"][name*="user"], input[name="username"], input[name="email"], input[autocomplete="username"]'
+      );
+      const passInput = await page.$('input[type="password"], input[name="password"]');
+      if (userInput) await userInput.type(BROWSER_VISIT_USER, { delay: 50 });
+      if (passInput) await passInput.type(BROWSER_VISIT_PASSWORD, { delay: 50 });
+      const submit = await page.$('button[type="submit"], input[type="submit"]');
+      if (submit) {
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {}),
+          submit.click(),
+        ]);
+      }
+      await delay(2000);
+    }
+
+    await page.goto(fullUrl, { waitUntil: 'networkidle2' });
+    await delay(2000);
+
+    const title = await page.title();
+    const bodyText = await page.evaluate(() => {
+      const body = document.body;
+      if (!body) return '';
+      const clone = body.cloneNode(true) as HTMLElement;
+      for (const el of clone.querySelectorAll('script, style, nav, footer, iframe')) el.remove();
+      return clone.innerText.replace(/\s+/g, ' ').trim().slice(0, 20000);
+    });
+
+    const out = [
+      title ? `Title: ${title}` : '',
+      bodyText || '(No text content)',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+    return { output: out };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { output: '', error: `Browser visit failed: ${msg}` };
   } finally {
     await page.close().catch(() => {});
   }

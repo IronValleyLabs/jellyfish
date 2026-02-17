@@ -49,3 +49,42 @@ export async function loadSystemPrompt(): Promise<string | null> {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
+
+/** Repo root (from packages/core/dist or packages/core). */
+function getRepoRoot(): string {
+  return path.resolve(__dirname, '../../..');
+}
+
+function readDataFile(filename: string): Promise<string> {
+  const filePath = path.join(getRepoRoot(), 'data', filename);
+  try {
+    const raw = await fs.readFile(filePath, 'utf-8');
+    return raw.trim();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Loads data/agent-role.md (job description). Agent uses this to act autonomously.
+ */
+export async function loadAgentRole(): Promise<string> {
+  const content = await readDataFile('agent-role.md');
+  return content ? `\n\n---\nYOUR ROLE (job description — act according to this):\n${content}` : '';
+}
+
+/**
+ * Loads data/agent-kpis.md. Agent uses these to take initiative and do things on its own.
+ */
+export async function loadAgentKpis(): Promise<string> {
+  const content = await readDataFile('agent-kpis.md');
+  return content ? `\n\n---\nYOUR KPIs (work towards these on your own initiative):\n${content}` : '';
+}
+
+/**
+ * Loads data/agent-knowledge.md so the agent can use what the user has taught it.
+ */
+export async function loadAgentKnowledge(): Promise<string> {
+  const content = await readDataFile('agent-knowledge.md');
+  return content ? `\n\n---\nKnowledge (use when relevant):\n${content}` : '';
+}

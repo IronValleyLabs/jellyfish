@@ -6,13 +6,17 @@ import {
 import { getLLMClientConfig } from './llm-provider';
 
 const DEFAULT_SYSTEM_PROMPT =
-  'You are a helpful, friendly assistant. Reply in a concise and clear way.';
+  'You are a full autonomous agent, not a minimal bot. Be warm and human: friendly, a bit of humor when it fits. After actions, say what you did in a natural way and suggest next steps if relevant. Never give one dry line when a fuller, helpful reply is better.';
 
 export interface DetectedIntent {
-  intent: 'bash' | 'websearch' | 'draft' | 'response' | 'generate_image' | 'instagram_post' | 'metricool_schedule' | 'create_skill';
+  intent: 'bash' | 'websearch' | 'draft' | 'response' | 'generate_image' | 'instagram_post' | 'metricool_schedule' | 'create_skill' | 'browser_visit' | 'store_credential' | 'write_file';
   params: {
     command?: string;
     query?: string;
+    url?: string;
+    key?: string;
+    value?: string;
+    filePath?: string;
     text?: string;
     prompt?: string;
     size?: string;
@@ -72,7 +76,7 @@ export class AIProcessor {
         params?: Record<string, string>;
       };
       const allowed =
-        ['bash', 'websearch', 'draft', 'generate_image', 'instagram_post', 'metricool_schedule', 'create_skill'] as const;
+        ['bash', 'websearch', 'draft', 'generate_image', 'instagram_post', 'metricool_schedule', 'create_skill', 'browser_visit', 'store_credential', 'write_file'] as const;
       const intent = allowed.includes(parsed.intent as any) ? (parsed.intent as DetectedIntent['intent']) : 'response';
       const params = parsed.params ?? {};
       return {
@@ -80,6 +84,10 @@ export class AIProcessor {
         params: {
           command: params.command,
           query: params.query,
+          url: params.url,
+          key: params.key,
+          value: params.value,
+          filePath: params.filePath,
           text: params.text,
           prompt: params.prompt,
           size: params.size,
@@ -100,12 +108,16 @@ export class AIProcessor {
 
   async generateResponse(
     currentMessage: string,
-    history: Array<{ role: string; content: string }>
+    history: Array<{ role: string; content: string }>,
+    extraSystemContext?: string
   ): Promise<{ content: string; usage?: { prompt_tokens: number; completion_tokens: number } }> {
+    const systemContent = extraSystemContext
+      ? this.systemPrompt + extraSystemContext
+      : this.systemPrompt;
     const messages = [
       {
         role: 'system' as const,
-        content: this.systemPrompt,
+        content: systemContent,
       },
       ...history.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
       { role: 'user' as const, content: currentMessage },
@@ -114,7 +126,7 @@ export class AIProcessor {
       model: this.model,
       messages,
       temperature: 0.7,
-      max_tokens: 500,
+      max_tokens: 720,
     });
     const content = completion.choices[0].message.content || 'Sorry, I could not generate a response.';
     const usage = completion.usage

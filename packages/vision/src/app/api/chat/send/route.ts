@@ -1,5 +1,6 @@
 import path from 'path'
 import fs from 'fs'
+import { readFile } from 'fs/promises'
 import { NextRequest } from 'next/server'
 import dotenv from 'dotenv'
 
@@ -8,6 +9,30 @@ if (rootEnv) dotenv.config({ path: rootEnv })
 
 const ROOT = path.resolve(process.cwd(), '..', '..')
 const WEB_PREFIX = 'web_'
+const DATA_DIR = path.join(ROOT, 'data')
+
+async function readDataFile(name: string): Promise<string> {
+  try {
+    const raw = await readFile(path.join(DATA_DIR, name), 'utf-8')
+    return raw.trim()
+  } catch {
+    return ''
+  }
+}
+
+/** Load role + KPIs + knowledge so the agent acts autonomously in dashboard chat too. */
+async function loadAgentContext(): Promise<string> {
+  const [role, kpis, knowledge] = await Promise.all([
+    readDataFile('agent-role.md'),
+    readDataFile('agent-kpis.md'),
+    readDataFile('agent-knowledge.md'),
+  ])
+  const parts: string[] = []
+  if (role) parts.push('---\nYOUR ROLE (job description — act according to this):\n' + role)
+  if (kpis) parts.push('---\nYOUR KPIs (work towards these on your own initiative):\n' + kpis)
+  if (knowledge) parts.push('---\nKnowledge (use when relevant):\n' + knowledge)
+  return parts.length ? '\n\n' + parts.join('\n\n') : ''
+}
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -64,7 +89,7 @@ function getLLMConfig(): { apiKey: string; baseURL: string; model: string; heade
 }
 
 const MAX_HISTORY_MESSAGES = 8
-const MAX_RESPONSE_TOKENS = 280
+const MAX_RESPONSE_TOKENS = 680
 
 async function generateResponseSync(
   systemPrompt: string,
@@ -74,7 +99,7 @@ async function generateResponseSync(
   const { baseURL, model, headers } = getLLMConfig()
   const recent = history.slice(-MAX_HISTORY_MESSAGES)
   const messages = [
-    { role: 'system' as const, content: systemPrompt + '\n\nReply concisely. Do not repeat or paraphrase the user\'s message.' },
+    { role: 'system' as const, content: systemPrompt + '\n\nAnswer as a full agent: warm, natural, with personality. Don\'t be dry or minimal — explain what you did or suggest next steps when it fits. Match the user\'s language. Never reply with a single cold line unless they explicitly ask for brevity.' },
     ...recent.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
     { role: 'user' as const, content: currentMessage },
   ]
@@ -174,7 +199,9 @@ export async function POST(request: NextRequest) {
       .all(conversationId) as Array<{ role: string; content: string }>
     const history = rows.reverse()
 
-    const systemPrompt = getSystemPrompt()
+    const basePrompt = getSystemPrompt()
+    const agentContext = await loadAgentContext()
+    const systemPrompt = basePrompt + agentContext
     const content = await generateResponseSync(systemPrompt, history, text)
 
     try {

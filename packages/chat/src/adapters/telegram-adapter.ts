@@ -2,6 +2,7 @@ import { Telegraf } from 'telegraf';
 import type { ChatAdapter, IncomingMessage } from './base-adapter';
 
 const PREFIX = 'telegram_';
+const MAX_SEEN_UPDATE_IDS = 2000;
 
 /** Returns Telegram adapter if TELEGRAM_BOT_TOKEN is set, otherwise null. */
 export function createTelegramAdapter(): ChatAdapter | null {
@@ -9,6 +10,7 @@ export function createTelegramAdapter(): ChatAdapter | null {
   if (!token) return null;
   const bot = new Telegraf(token);
   let messageHandler: ((message: IncomingMessage) => void) | null = null;
+  const seenUpdateIds = new Set<number>();
 
   return {
     platform: 'telegram',
@@ -20,6 +22,16 @@ export function createTelegramAdapter(): ChatAdapter | null {
         console.warn('[TelegramAdapter] deleteWebhook failed (optional):', (e as Error).message);
       }
       bot.on('text', (ctx) => {
+        const updateId = ctx.update.update_id;
+        if (seenUpdateIds.has(updateId)) {
+          console.log('[TelegramAdapter] Skipping duplicate update_id', updateId);
+          return;
+        }
+        seenUpdateIds.add(updateId);
+        if (seenUpdateIds.size > MAX_SEEN_UPDATE_IDS) {
+          const first = seenUpdateIds.values().next().value;
+          if (first !== undefined) seenUpdateIds.delete(first);
+        }
         const userId = ctx.from!.id.toString();
         const conversationId = PREFIX + userId;
         const text = ctx.message.text ?? '';

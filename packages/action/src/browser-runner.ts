@@ -1,8 +1,8 @@
 /**
- * Launches Puppeteer and runs predefined flows (Instagram post, Metricool schedule).
- * Set INSTAGRAM_* or METRICOOL_* in .env. If puppeteer is not installed, flows return a clear error.
+ * Launches Puppeteer and runs predefined flows (Instagram post, Metricool schedule, browser_visit).
+ * Set INSTAGRAM_* or METRICOOL_* in .env. For browser_visit, optional BROWSER_VISIT_LOGIN_* to log in first.
  */
-import { instagramPost, metricoolSchedule } from './browser-flows';
+import { instagramPost, metricoolSchedule, visitUrlWithBrowser } from './browser-flows';
 
 let puppeteer: typeof import('puppeteer') | null = null;
 try {
@@ -11,11 +11,12 @@ try {
   // optional dependency
 }
 
-export type FlowName = 'instagram_post' | 'metricool_schedule';
+export type FlowName = 'instagram_post' | 'metricool_schedule' | 'browser_visit';
 
 export interface FlowParams {
   instagram_post?: { caption: string; imagePathOrUrl: string };
   metricool_schedule?: { content: string; scheduledDate?: string };
+  browser_visit?: { url: string };
 }
 
 export class BrowserRunner {
@@ -41,6 +42,9 @@ export class BrowserRunner {
       }
       if (flow === 'metricool_schedule' && params && 'content' in params) {
         return await metricoolSchedule(browser, params.content, params.scheduledDate);
+      }
+      if (flow === 'browser_visit' && params && 'url' in params && params.url) {
+        return await visitUrlWithBrowser(browser, params.url);
       }
       return { output: '', error: `Unknown flow or missing params: ${flow}` };
     } finally {
