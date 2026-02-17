@@ -77,8 +77,10 @@ jobs:
 
       - name: Upload to release
         if: inputs.release_tag != ''
+        continue-on-error: true
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "${{ inputs.release_tag }}" "packaging/out/windows/Jellyfish-win-x64.zip" --repo ${{ github.repository }} --clobber
+          if ($LASTEXITCODE -ne 0) { Write-Warning "Release upload failed (tag may not exist — create the release first in GitHub). Zip is in Artifacts." }
